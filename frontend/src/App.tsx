@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { Posto, CombustivelTipo, OrdemBusca } from './types';
 import { 
   obterPostosCadastrados, 
@@ -6,15 +6,16 @@ import {
   filtrarEOrdenarPostos, 
   buscarPostosReaisOSM 
 } from './services/postoService';
+import { calcularRotaVeicular, type RotaDetalhada } from './services/routingService';
 import { Header } from './components/Header';
 import { Filtros } from './components/Filtros';
 import { Mapa } from './components/Mapa';
 import { ListaPostos } from './components/ListaPostos';
+import { PainelNavegacao } from './components/PainelNavegacao';
 import { CalculadoraFlex } from './components/CalculadoraFlex';
 import { ModalAtualizarPreco } from './components/ModalAtualizarPreco';
-import { MapPin, Sparkles, AlertCircle } from 'lucide-react';
+import { MapPin, Sparkles, AlertCircle, Navigation } from 'lucide-react';
 
-// Cidades pré-configuradas para teste rápido
 const CIDADES_TESTE = [
   { nome: 'São Paulo (SP)', lat: -23.5682, lng: -46.6534 },
   { nome: 'Rio de Janeiro (RJ)', lat: -22.9436, lng: -43.1812 },
@@ -27,12 +28,13 @@ const CIDADES_TESTE = [
 ];
 
 export const App: React.FC = () => {
-  // Posição inicial: São Paulo Paulista
+  // Posição do usuário
   const [lat, setLat] = useState<number>(-23.5682);
   const [lng, setLng] = useState<number>(-46.6534);
   const [cidadeNome, setCidadeNome] = useState<string>('São Paulo (SP)');
   const [carregandoGPS, setCarregandoGPS] = useState<boolean>(false);
   const [mensagemGPS, setMensagemGPS] = useState<string | null>(null);
+  const [rastreandoAoVivo, setRastreandoAoVivo] = useState<boolean>(true);
 
   // Filtros
   const [combustivel, setCombustivel] = useState<CombustivelTipo>('gasolina_comum');
@@ -44,11 +46,71 @@ export const App: React.FC = () => {
   const [postos, setPostos] = useState<Posto[]>(obterPostosCadastrados());
   const [postoParaEditar, setPostoParaEditar] = useState<Posto | null>(null);
 
+  // Rota e Navegação Ativa
+  const [postoDestino, setPostoDestino] = useState<Posto | null>(null);
+  const [rotaAtiva, setRotaAtiva] = useState<RotaDetalhada | null>(null);
+
   // Modais
   const [modalCalculadoraAberto, setModalCalculadoraAberto] = useState<boolean>(false);
   const [modalAtualizarAberto, setModalAtualizarAberto] = useState<boolean>(false);
 
-  // Obter localização real do usuário via GPS
+  const watchIdRef = useRef<number | null>(null);
+
+  // Iniciar / Atualizar Rota
+  const tracarRota = useCallback(async (posto: Posto, userLat: number, userLng: number) => {
+    setPostoDestino(posto);
+    setVisualizacao('mapa');
+    const rota = await calcularRotaVeicular(userLat, userLng, posto.lat, posto.lng);
+    setRotaAtiva(rota);
+  }, []);
+
+  // Rastreamento Contínuo de GPS (watchPosition)
+  useEffect(() => {
+    if (!navigator.geolocation || !rastreandoAoVivo) {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation?.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      return;
+    }
+
+    setCarregandoGPS(true);
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const novoLat = pos.coords.latitude;
+        const novoLng = pos.coords.longitude;
+        setLat(novoLat);
+        setLng(novoLng);
+        setCarregandoGPS(false);
+
+        // Se houver rota ativa, recalcula ETA e distância com base na nova posição
+        if (postoDestino) {
+          tracarRota(postoDestino, novoLat, novoLng);
+        }
+      },
+      (erro) => {
+        console.warn('Erro ao acompanhar GPS contínuo:', erro.message);
+        setCarregandoGPS(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 3000,
+      }
+    );
+
+    watchIdRef.current = watchId;
+
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+    };
+  }, [rastreandoAoVivo, postoDestino, tracarRota]);
+
+  // Forçar atualização do GPS manual
   const obterLocalizacaoGPS = () => {
     if (!navigator.geolocation) {
       setMensagemGPS('Geolocalização não suportada no seu navegador.');
@@ -67,7 +129,6 @@ export const App: React.FC = () => {
         setCidadeNome('Sua Localização GPS');
         setCarregandoGPS(false);
 
-        // Busca postos locais ao vivo via OpenStreetMap caso a região não esteja na base inicial
         const postosLocais = await buscarPostosReaisOSM(userLat, userLng, raioKm);
         if (postosLocais.length > 0) {
           setPostos((anteriores) => {
@@ -77,21 +138,13 @@ export const App: React.FC = () => {
           });
         }
       },
-      (erro) => {
-        console.warn('Erro ao obter GPS:', erro.message);
+      () => {
         setMensagemGPS('Permissão de GPS negada. Usando localização simulada.');
         setCarregandoGPS(false);
       },
       { timeout: 10000, enableHighAccuracy: true }
     );
   };
-
-  // Inicializa tentando pegar o GPS (ou usando default)
-  useEffect(() => {
-    if (navigator.geolocation) {
-      obterLocalizacaoGPS();
-    }
-  }, []);
 
   // Postos filtrados e ordenados
   const postosProcessados = useMemo(() => {
@@ -104,7 +157,7 @@ export const App: React.FC = () => {
     });
   }, [postos, lat, lng, raioKm, combustivel, ordem]);
 
-  // Estatísticas do topo
+  // Estatísticas de preço
   const { menorPreco, precoMedio } = useMemo(() => {
     const precos = postosProcessados
       .map((p) => p.precos[combustivel])
@@ -117,7 +170,7 @@ export const App: React.FC = () => {
     return { menorPreco: menor, precoMedio: media };
   }, [postosProcessados, combustivel]);
 
-  // Salvar novo preço informado pelo usuário
+  // Salvar novo preço
   const handleSalvarPreco = (
     postoId: string,
     combustivelTipo: CombustivelTipo,
@@ -148,7 +201,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500 selection:text-slate-950">
-      {/* Barra de Notificação GPS */}
+      {/* Alerta de GPS */}
       {mensagemGPS && (
         <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 text-xs text-amber-300 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
@@ -175,7 +228,7 @@ export const App: React.FC = () => {
         }}
       />
 
-      {/* Seletor Rápido de Cidades Brasileiras para Demonstração */}
+      {/* Seletor Rápido de Cidades */}
       <div className="bg-slate-900/60 border-b border-slate-800/80 px-4 py-2 overflow-x-auto no-scrollbar flex items-center gap-1.5 text-xs">
         <span className="text-[11px] text-slate-400 font-semibold flex items-center gap-1 shrink-0">
           <MapPin className="w-3 h-3 text-emerald-400" />
@@ -190,6 +243,8 @@ export const App: React.FC = () => {
                 setLat(c.lat);
                 setLng(c.lng);
                 setCidadeNome(c.nome);
+                setPostoDestino(null);
+                setRotaAtiva(null);
               }}
               className={`px-2.5 py-1 rounded-md text-[11px] whitespace-nowrap transition-all ${
                 ativo
@@ -216,67 +271,73 @@ export const App: React.FC = () => {
         totalPostos={postosProcessados.length}
       />
 
-      {/* Conteúdo Principal: Alternância entre Mapa e Lista */}
+      {/* Conteúdo: Alternância entre Mapa e Lista */}
       <main className="flex-1 relative flex flex-col">
         {visualizacao === 'mapa' ? (
-          <div className="flex-1 flex flex-col h-[calc(100vh-230px)] min-h-[480px]">
+          <div className="flex-1 flex flex-col h-[calc(100vh-230px)] min-h-[480px] relative">
             <Mapa
               postos={postosProcessados}
               usuarioLat={lat}
               usuarioLng={lng}
               raioKm={raioKm}
               combustivelSelecionado={combustivel}
-              onEditarPosto={(posto) => {
-                setPostoParaEditar(posto);
-                setModalAtualizarAberto(true);
-              }}
+              onSelecionarPosto={(posto) => tracarRota(posto, lat, lng)}
+              postoDestino={postoDestino}
+              rotaAtiva={rotaAtiva}
             />
-            {/* Card Flutuante com o Posto #1 Mais Barato sobre o Mapa */}
-            {postosProcessados.length > 0 && postosProcessados[0].precos[combustivel] && (
-              <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 z-10 bg-slate-900/95 backdrop-blur-md border border-emerald-500/40 rounded-xl p-3 shadow-2xl">
-                <div className="flex items-center justify-between text-xs mb-1">
-                  <span className="font-bold text-emerald-400 flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5" /> Mais Barato Agora
-                  </span>
-                  <span className="text-[11px] text-slate-400">
-                    {postosProcessados[0].distanciaKm} km de você
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-bold text-white text-sm truncate max-w-[200px]">
-                      {postosProcessados[0].nome}
-                    </h4>
-                    <p className="text-[11px] text-slate-400 truncate">
-                      {postosProcessados[0].endereco}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-slate-400 block uppercase font-semibold">Litro</span>
-                    <span className="text-xl font-black text-emerald-400">
-                      R$ {postosProcessados[0].precos[combustivel]?.toFixed(2)}
+
+            {/* Painel de Navegação Ativa (quando um posto é selecionado para rota) */}
+            {postoDestino ? (
+              <PainelNavegacao
+                posto={postoDestino}
+                rota={rotaAtiva}
+                combustivelSelecionado={combustivel}
+                onEncerrarRota={() => {
+                  setPostoDestino(null);
+                  setRotaAtiva(null);
+                }}
+                rastreandoAoVivo={rastreandoAoVivo}
+                onAlternarRastreamento={() => setRastreandoAoVivo(!rastreandoAoVivo)}
+              />
+            ) : (
+              /* Card Flutuante com o Posto Mais Barato quando sem rota selecionada */
+              postosProcessados.length > 0 && postosProcessados[0].precos[combustivel] && (
+                <div className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-96 z-10 bg-slate-900/95 backdrop-blur-md border border-emerald-500/40 rounded-xl p-3 shadow-2xl">
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="font-bold text-emerald-400 flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" /> Mais Barato Agora
+                    </span>
+                    <span className="text-[11px] text-slate-400">
+                      {postosProcessados[0].distanciaKm} km de você
                     </span>
                   </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-white text-sm truncate max-w-[200px]">
+                        {postosProcessados[0].nome}
+                      </h4>
+                      <p className="text-[11px] text-slate-400 truncate">
+                        {postosProcessados[0].endereco}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 block uppercase font-semibold">Litro</span>
+                      <span className="text-xl font-black text-emerald-400">
+                        R$ {postosProcessados[0].precos[combustivel]?.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-2 pt-2 border-t border-slate-800">
+                    <button
+                      onClick={() => tracarRota(postosProcessados[0], lat, lng)}
+                      className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg text-center transition-all flex items-center justify-center gap-1 shadow-md shadow-emerald-900/30"
+                    >
+                      <Navigation className="w-3.5 h-3.5" />
+                      Traçar Rota & Tempo (ETA)
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2 mt-2 pt-2 border-t border-slate-800">
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${postosProcessados[0].lat},${postosProcessados[0].lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg text-center transition-all"
-                  >
-                    Navegar (Google Maps)
-                  </a>
-                  <a
-                    href={`https://waze.com/ul?ll=${postosProcessados[0].lat},${postosProcessados[0].lng}&navigate=yes`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="py-1.5 px-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg text-center transition-all"
-                  >
-                    Waze
-                  </a>
-                </div>
-              </div>
+              )
             )}
           </div>
         ) : (
@@ -287,6 +348,7 @@ export const App: React.FC = () => {
               setPostoParaEditar(posto);
               setModalAtualizarAberto(true);
             }}
+            onSelecionarPostoParaNavegar={(posto) => tracarRota(posto, lat, lng)}
           />
         )}
       </main>

@@ -6,12 +6,14 @@ interface ListaPostosProps {
   postos: Posto[];
   combustivelSelecionado: CombustivelTipo;
   onEditarPosto: (posto: Posto) => void;
+  onSelecionarPostoParaNavegar?: (posto: Posto) => void;
 }
 
 export const ListaPostos: React.FC<ListaPostosProps> = ({
   postos,
   combustivelSelecionado,
   onEditarPosto,
+  onSelecionarPostoParaNavegar,
 }) => {
   const [postoExpandido, setPostoExpandido] = useState<string | null>(null);
 
@@ -119,16 +121,28 @@ export const ListaPostos: React.FC<ListaPostosProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1.5">
+                  {/* Botão de Traçar Rota no App */}
+                  {onSelecionarPostoParaNavegar && (
+                    <button
+                      onClick={() => onSelecionarPostoParaNavegar(posto)}
+                      className="p-2 sm:px-3 sm:py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-all shadow-md shadow-emerald-900/30"
+                      title="Calcular rota e tempo estimado"
+                    >
+                      <Navigation className="w-3.5 h-3.5" />
+                      <span>Rota</span>
+                    </button>
+                  )}
+
                   {/* Botão de Rotas (Google Maps) */}
                   <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${posto.lat},${posto.lng}`}
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${posto.lat},${posto.lng}&travelmode=driving`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 sm:px-3 sm:py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
-                    title="Traçar rota no GPS"
+                    className="p-2 sm:px-2.5 sm:py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all border border-slate-700"
+                    title="Navegar pelo Google Maps"
                   >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">Ir</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="hidden sm:inline">Maps</span>
                   </a>
 
                   {/* Botão de Waze */}

@@ -3,12 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2310b981'><path d='M3 3h18v18H3V3z'/></svg>" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#020617" />
-    <meta name="description" content="Encontre os combustíveis mais baratos em tempo real por localização em todo o Brasil com validação de NFC-e e colaboração." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="Encontre os combustíveis mais baratos em tempo real por localização em todo o Brasil com navegação, rotas e tempo estimado (ETA)." />
+    
+    <!-- Blindagem de Segurança / Anti-vulnerabilidades (CSP) -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' capacitor: https: data: blob: 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: blob: https: *.basemaps.cartocdn.com *.openstreetmap.org; connect-src 'self' https: wss: *.basemaps.cartocdn.com *.openstreetmap.org overpass-api.de router.project-osrm.org;" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    
     <title>EcoTanque - Combustível Mais Barato ao Vivo</title>
   </head>
-  <body class="bg-slate-950 text-slate-100 overflow-x-hidden">
+  <body class="bg-slate-950 text-slate-100 overflow-x-hidden select-none">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

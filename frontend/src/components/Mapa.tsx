@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import type { Posto, CombustivelTipo } from '../types';
+import type { RotaDetalhada } from '../services/routingService';
 
 interface MapaProps {
   postos: Posto[];
@@ -9,7 +10,8 @@ interface MapaProps {
   raioKm: number;
   combustivelSelecionado: CombustivelTipo;
   onSelecionarPosto?: (posto: Posto) => void;
-  onEditarPosto?: (posto: Posto) => void;
+  postoDestino?: Posto | null;
+  rotaAtiva?: RotaDetalhada | null;
 }
 
 export const Mapa: React.FC<MapaProps> = ({
@@ -18,11 +20,16 @@ export const Mapa: React.FC<MapaProps> = ({
   usuarioLng,
   raioKm,
   combustivelSelecionado,
+  onSelecionarPosto,
+  postoDestino,
+  rotaAtiva,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const userMarkerRef = useRef<L.Marker | null>(null);
   const userCircleRef = useRef<L.Circle | null>(null);
+  const routePolylineRef = useRef<L.Polyline | null>(null);
 
   // Inicialização do Mapa Leaflet
   useEffect(() => {
@@ -35,21 +42,20 @@ export const Mapa: React.FC<MapaProps> = ({
         zoomControl: false,
       });
 
-      // Layer de mapa CartoDB Dark ou OpenStreetMap limpo
+      // Layer de mapa CartoDB Voyager de alta legibilidade
       L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
         maxZoom: 19,
       }).addTo(map);
 
-      // Controle de zoom no canto inferior direito
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
+      // Controle de zoom no canto superior direito
+      L.control.zoom({ position: 'topright' }).addTo(map);
 
       mapInstanceRef.current = map;
       markersLayerRef.current = L.layerGroup().addTo(map);
     }
 
     return () => {
-      // Destruir mapa ao desmontar
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -57,48 +63,88 @@ export const Mapa: React.FC<MapaProps> = ({
     };
   }, []);
 
-  // Atualização de posição e raio do usuário
+  // Atualização da posição do usuário em tempo real
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    // Atualiza centro se o usuário mudou significativamente
-    map.setView([usuarioLat, usuarioLng], map.getZoom() || 14);
+    // Atualiza ou cria o marcador do usuário
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng([usuarioLat, usuarioLng]);
+    } else {
+      const userIcon = L.divIcon({
+        className: 'user-gps-marker',
+        html: `
+          <div class="relative flex items-center justify-center">
+            <div class="absolute w-8 h-8 bg-emerald-500/30 rounded-full gps-pulse"></div>
+            <div class="w-4 h-4 bg-emerald-500 border-2 border-white rounded-full shadow-lg"></div>
+          </div>
+        `,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      });
 
-    // Remove círculo anterior se existir
-    if (userCircleRef.current) {
-      userCircleRef.current.remove();
+      userMarkerRef.current = L.marker([usuarioLat, usuarioLng], {
+        icon: userIcon,
+        zIndexOffset: 1000,
+      }).addTo(map);
+
+      userMarkerRef.current.bindPopup('<strong class="text-xs">Você está aqui (GPS Ativo)</strong>');
     }
 
-    // Desenha círculo do raio de busca
-    userCircleRef.current = L.circle([usuarioLat, usuarioLng], {
-      radius: raioKm * 1000,
-      color: '#10b981',
-      fillColor: '#10b981',
-      fillOpacity: 0.08,
-      weight: 1.5,
-      dashArray: '4, 4',
-    }).addTo(map);
+    // Atualiza círculo do raio
+    if (userCircleRef.current) {
+      userCircleRef.current.setLatLng([usuarioLat, usuarioLng]);
+      userCircleRef.current.setRadius(raioKm * 1000);
+    } else {
+      userCircleRef.current = L.circle([usuarioLat, usuarioLng], {
+        radius: raioKm * 1000,
+        color: '#10b981',
+        fillColor: '#10b981',
+        fillOpacity: 0.06,
+        weight: 1.5,
+        dashArray: '4, 4',
+      }).addTo(map);
+    }
 
-    // Marcador do usuário (GPS pulsante)
-    const userIcon = L.divIcon({
-      className: 'user-gps-marker',
-      html: `
-        <div class="relative flex items-center justify-center">
-          <div class="absolute w-8 h-8 bg-blue-500/30 rounded-full gps-pulse"></div>
-          <div class="w-4 h-4 bg-blue-600 border-2 border-white rounded-full shadow-lg"></div>
-        </div>
-      `,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
-    });
+    // Se NÃO estiver com rota ativa, acompanha o centro no usuário
+    if (!postoDestino) {
+      map.setView([usuarioLat, usuarioLng], map.getZoom() || 14);
+    }
+  }, [usuarioLat, usuarioLng, raioKm, postoDestino]);
 
-    const userMarker = L.marker([usuarioLat, usuarioLng], { icon: userIcon, zIndexOffset: 1000 });
-    userMarker.bindPopup('<strong class="text-xs">Sua Localização Atual</strong>');
-    userMarker.addTo(map);
-  }, [usuarioLat, usuarioLng, raioKm]);
+  // Renderização da Rota Viária Ativa no Mapa
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
 
-  // Atualização dos Marcadores de Postos
+    // Remove rota anterior se existir
+    if (routePolylineRef.current) {
+      routePolylineRef.current.remove();
+      routePolylineRef.current = null;
+    }
+
+    if (rotaAtiva && rotaAtiva.coordenadasGeoJSON.length > 0) {
+      // Linha de rota com estilo neon / destaque
+      const polyline = L.polyline(rotaAtiva.coordenadasGeoJSON, {
+        color: '#059669', // Emerald-600
+        weight: 6,
+        opacity: 0.9,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(map);
+
+      routePolylineRef.current = polyline;
+
+      // Ajusta o zoom do mapa para enquadrar a rota inteira perfeitamente
+      map.fitBounds(polyline.getBounds(), {
+        padding: [60, 60],
+        maxZoom: 16,
+      });
+    }
+  }, [rotaAtiva]);
+
+  // Marcadores de Postos
   useEffect(() => {
     const map = mapInstanceRef.current;
     const layer = markersLayerRef.current;
@@ -106,7 +152,6 @@ export const Mapa: React.FC<MapaProps> = ({
 
     layer.clearLayers();
 
-    // Determina o menor preço da lista para colorir de verde o mais econômico
     const precosValidos = postos
       .map((p) => p.precos[combustivelSelecionado])
       .filter((p): p is number => p !== null && p !== undefined);
@@ -120,11 +165,13 @@ export const Mapa: React.FC<MapaProps> = ({
 
       const isMenor = Math.abs(preco - menorPreco) < 0.01;
       const isMaior = Math.abs(preco - maiorPreco) < 0.01 && precosValidos.length > 1;
+      const isDestino = postoDestino?.id === posto.id;
 
-      // Cores por faixa de preço
       let corBg = 'bg-slate-900 border-slate-700 text-white';
 
-      if (isMenor) {
+      if (isDestino) {
+        corBg = 'bg-teal-500 border-white text-slate-950 ring-4 ring-teal-400/50 scale-110';
+      } else if (isMenor) {
         corBg = 'bg-emerald-600 border-emerald-400 text-white ring-4 ring-emerald-500/30 scale-105';
       } else if (isMaior) {
         corBg = 'bg-rose-700 border-rose-500 text-white';
@@ -135,7 +182,7 @@ export const Mapa: React.FC<MapaProps> = ({
       const html = `
         <div class="custom-pin flex flex-col items-center">
           <div class="px-2 py-1 rounded-lg border text-xs font-bold shadow-xl flex items-center gap-1 ${corBg}">
-            ${isMenor ? '<span>★</span>' : ''}
+            ${isDestino ? '<span>🎯</span>' : isMenor ? '<span>★</span>' : ''}
             <span>R$ ${preco.toFixed(2)}</span>
           </div>
           <div class="w-2 h-2 bg-slate-900 rotate-45 -mt-1 border-r border-b border-slate-700"></div>
@@ -152,7 +199,12 @@ export const Mapa: React.FC<MapaProps> = ({
 
       const marker = L.marker([posto.lat, posto.lng], { icon: customIcon });
 
-      // Conteúdo rico do Popup ao clicar no posto
+      marker.on('click', () => {
+        if (onSelecionarPosto) {
+          onSelecionarPosto(posto);
+        }
+      });
+
       const popupHtml = `
         <div class="p-2 min-w-[220px] font-sans text-slate-800">
           <div class="flex items-center justify-between gap-2 border-b pb-1.5 mb-2">
@@ -179,52 +231,40 @@ export const Mapa: React.FC<MapaProps> = ({
               <span class="text-[10px] text-slate-500 block">Etanol</span>
               <strong class="text-slate-900">R$ ${posto.precos.etanol?.toFixed(2) ?? '--'}</strong>
             </div>
-            <div>
-              <span class="text-[10px] text-slate-500 block">Aditivada</span>
-              <strong class="text-slate-900">R$ ${posto.precos.gasolina_aditivada?.toFixed(2) ?? '--'}</strong>
-            </div>
-            <div>
-              <span class="text-[10px] text-slate-500 block">Diesel S10</span>
-              <strong class="text-slate-900">R$ ${posto.precos.diesel_s10?.toFixed(2) ?? '--'}</strong>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-between text-[10px] text-slate-500 mb-2">
-            <span>Atualizado: ${posto.ultimaAtualizacao}</span>
-            <span class="font-medium text-emerald-700">${posto.fonte}</span>
           </div>
 
           <div class="flex gap-1.5 pt-1 border-t">
-            <a 
-              href="https://www.google.com/maps/dir/?api=1&destination=${posto.lat},${posto.lng}" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              class="flex-1 text-center bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 px-2 rounded-md font-semibold text-xs transition-colors"
+            <button 
+              id="btn-tracar-rota-${posto.id}"
+              class="w-full text-center bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 px-2 rounded-md font-bold text-xs transition-colors flex items-center justify-center gap-1"
             >
-              Rotas (GPS)
-            </a>
-            <a 
-              href="https://waze.com/ul?ll=${posto.lat},${posto.lng}&navigate=yes" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              class="bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-2 rounded-md font-semibold text-xs transition-colors"
-            >
-              Waze
-            </a>
+              Traçar Rota no App
+            </button>
           </div>
         </div>
       `;
 
       marker.bindPopup(popupHtml);
+
+      marker.on('popupopen', () => {
+        const btn = document.getElementById(`btn-tracar-rota-${posto.id}`);
+        if (btn && onSelecionarPosto) {
+          btn.onclick = () => {
+            onSelecionarPosto(posto);
+            marker.closePopup();
+          };
+        }
+      });
+
       layer.addLayer(marker);
     });
-  }, [postos, combustivelSelecionado]);
+  }, [postos, combustivelSelecionado, postoDestino, onSelecionarPosto]);
 
   return (
     <div className="relative w-full h-full min-h-[450px]">
       <div ref={mapContainerRef} className="w-full h-full rounded-b-xl z-0" />
-      {/* Legenda flutuante no mapa */}
-      <div className="absolute top-3 right-3 z-10 bg-slate-900/90 backdrop-blur-md border border-slate-700 px-3 py-2 rounded-lg text-xs text-white shadow-xl flex flex-col gap-1.5">
+      {/* Legenda flutuante */}
+      <div className="absolute top-3 left-3 z-10 bg-slate-900/90 backdrop-blur-md border border-slate-700 px-3 py-2 rounded-lg text-xs text-white shadow-xl flex flex-col gap-1.5 pointer-events-none">
         <div className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
           <span>Mais Barato</span>

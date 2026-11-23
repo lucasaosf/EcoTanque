@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">EcoTanque - Combustível Ao Vivo</string>
+    <string name="title_activity_main">EcoTanque - Combustível Ao Vivo</string>
+    <string name="package_name">com.lucasaosf.ecotanque</string>
+    <string name="custom_url_scheme">com.lucasaosf.ecotanque</string>
+</resources>
