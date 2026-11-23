@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # Banco de Dados com extensão PostGIS instalada
+  postgis:
+    image: postgis/postgis:16-3.4
+    container_name: ecotanque-postgis
+    environment:
+      POSTGRES_DB: ecotanque
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  # Backend REST API (FastAPI)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ecotanque-backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgrespassword@postgis:5432/ecotanque
+      PORT: 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgis
+    restart: unless-stopped
+
+  # Frontend Web/PWA (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ecotanque-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgis_data:
