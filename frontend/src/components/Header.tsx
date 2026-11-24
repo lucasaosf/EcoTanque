@@ -1,5 +1,5 @@
 import React from 'react';
-import { Fuel, MapPin, RefreshCw, Calculator, PlusCircle, Map as MapIcon, List, WifiOff } from 'lucide-react';
+import { Fuel, MapPin, RefreshCw, Calculator, PlusCircle, Map as MapIcon, List, WifiOff, Crown } from 'lucide-react';
 
 interface HeaderProps {
   cidadeAtual: string;
@@ -11,6 +11,8 @@ interface HeaderProps {
   setVisualizacao: (v: 'mapa' | 'lista') => void;
   abrirCalculadora: () => void;
   abrirModalAtualizar: () => void;
+  isPro?: boolean;
+  abrirModalPro?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -23,6 +25,8 @@ export const Header: React.FC<HeaderProps> = ({
   setVisualizacao,
   abrirCalculadora,
   abrirModalAtualizar,
+  isPro = false,
+  abrirModalPro,
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-white shadow-lg">
@@ -90,6 +94,22 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">Lista</span>
             </button>
           </div>
+
+          {/* Botão Seja PRO / PRO Ativo */}
+          {abrirModalPro && (
+            <button
+              onClick={abrirModalPro}
+              className={`p-1.5 sm:px-2.5 sm:py-1 rounded-lg text-xs font-black flex items-center gap-1.5 transition-all shadow-md ${
+                isPro
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 ring-2 ring-amber-400/50'
+                  : 'bg-amber-500/15 text-amber-300 border border-amber-500/40 hover:bg-amber-500/25'
+              }`}
+              title="Conhecer o EcoTanque PRO (Sem Anúncios)"
+            >
+              <Crown className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">{isPro ? 'PRO Ativo' : 'Seja PRO'}</span>
+            </button>
+          )}
 
           {/* Calculadora Flex */}
           <button

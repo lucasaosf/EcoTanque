@@ -29,6 +29,9 @@ import { PainelNavegacao } from './components/PainelNavegacao';
 import { CalculadoraFlex } from './components/CalculadoraFlex';
 import { ModalAtualizarPreco } from './components/ModalAtualizarPreco';
 import { ModalAtualizacaoDisponivel } from './components/ModalAtualizacaoDisponivel';
+import { ModalPlanoPro } from './components/ModalPlanoPro';
+import { BannerAnuncio } from './components/BannerAnuncio';
+import { obterStatusAssinatura, type InfoAssinatura } from './services/subscriptionService';
 import { MapPin, Sparkles, AlertCircle, Navigation } from 'lucide-react';
 
 const CIDADES_TESTE = [
@@ -73,6 +76,10 @@ export const App: React.FC = () => {
   // Modais
   const [modalCalculadoraAberto, setModalCalculadoraAberto] = useState<boolean>(false);
   const [modalAtualizarAberto, setModalAtualizarAberto] = useState<boolean>(false);
+  const [modalProAberto, setModalProAberto] = useState<boolean>(false);
+
+  // Status de Assinatura PRO (Controle de Anúncios e Recursos Exclusivos)
+  const [assinatura, setAssinatura] = useState<InfoAssinatura>(obterStatusAssinatura());
 
   const watchIdRef = useRef<string | number | null>(null);
 
@@ -352,6 +359,8 @@ export const App: React.FC = () => {
           setPostoParaEditar(null);
           setModalAtualizarAberto(true);
         }}
+        isPro={assinatura.isPro}
+        abrirModalPro={() => setModalProAberto(true)}
       />
 
       {/* Seletor Rápido de Cidades Brasileiras e GPS */}
@@ -509,6 +518,12 @@ export const App: React.FC = () => {
         )}
       </main>
 
+      {/* Banner de Anúncios no Rodapé (Exibido apenas para usuários Free) */}
+      <BannerAnuncio
+        isPro={assinatura.isPro}
+        onAbrirModalPro={() => setModalProAberto(true)}
+      />
+
       {/* Modais */}
       <CalculadoraFlex
         aberto={modalCalculadoraAberto}
@@ -526,6 +541,14 @@ export const App: React.FC = () => {
         postos={postosProcessados}
         postoSelecionado={postoParaEditar}
         onSalvarPreco={handleSalvarPreco}
+      />
+
+      {/* Modal do Plano PRO (R$ 14,90/mês - Sem Anúncios) */}
+      <ModalPlanoPro
+        aberto={modalProAberto}
+        onFechar={() => setModalProAberto(false)}
+        assinatura={assinatura}
+        onAtualizarAssinatura={() => setAssinatura(obterStatusAssinatura())}
       />
 
       {/* Modal Automático de Nova Versão Encontrada */}
