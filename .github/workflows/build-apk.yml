@@ -5,9 +5,12 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Gerar APK Standalone
+    name: Gerar APK e Publicar Release
     runs-on: ubuntu-latest
 
     steps:
@@ -45,9 +48,35 @@ jobs:
         working-directory: frontend/android
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload do APK Pronto para Download
+      - name: Preparar Arquivo APK com Nome Oficial
+        run: cp frontend/android/app/build/outputs/apk/debug/app-debug.apk EcoTanque-Combustivel-Brasil.apk
+
+      - name: Upload de Artefato de Segurança
         uses: actions/upload-artifact@v4
         with:
-          name: EcoTanque-Combustivel-Brasil-v1.0.apk
-          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          name: EcoTanque-Combustivel-Brasil.apk
+          path: EcoTanque-Combustivel-Brasil.apk
           retention-days: 30
+
+      - name: Publicar Release Automática no GitHub com Download Direto
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "⛽ EcoTanque v1.0.0 - APK Android Oficial"
+          body: |
+            ## 📱 Download do Aplicativo Nativo Android
+            
+            Este é o pacote instalável independente (**APK**) do **EcoTanque**.
+            
+            * **Compatibilidade:** Qualquer celular com Android 7.0 ou superior.
+            * **Conexão:** Funciona em 4G, 5G ou qualquer Wi-Fi.
+            * **Recursos:** Rastreamento GPS contínuo, rotas e tempo estimado (ETA) e menores preços em tempo real.
+            
+            ### 📥 Como Instalar:
+            1. Baixe o arquivo **`EcoTanque-Combustivel-Brasil.apk`** abaixo.
+            2. Toque no arquivo baixado no seu celular.
+            3. Se solicitado, autorize *"Instalar de fontes desconhecidas"*.
+            4. Abra o aplicativo e aproveite!
+          files: EcoTanque-Combustivel-Brasil.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

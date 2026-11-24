@@ -1,128 +1,80 @@
 # ⛽ EcoTanque - Preço de Combustíveis Mais Baratos ao Vivo no Brasil
 
-Aplicativo moderno e de alto desempenho projetado para localizar em tempo real os menores preços de combustíveis (**Gasolina Comum, Gasolina Aditivada, Etanol, Diesel S10 e GNV**) a partir da geolocalização do usuário em qualquer cidade do Brasil.
+<div align="center">
 
-O projeto resolve o desafio de dados em tempo real por meio de uma **arquitetura híbrida**:
-1. **Validação Fiscal em Tempo Real (NFC-e / SEFAZ):** Leitura e decodificação de Notas Fiscais Eletrônicas ao Consumidor (código de 44 dígitos).
-2. **Consultas Geoespaciais Ultrarrápidas:** PostgreSQL com extensão **PostGIS** (`ST_DWithin`, índices `GIST`).
-3. **Mapeamento ao Vivo:** OpenStreetMap (Overpass API) + Tiles de alto contraste com marcadores dinâmicos coloridos por ranking de preço.
-4. **Calculadora Flex Inteligente:** Algoritmo que calcula se compensa abastecer com Etanol ou Gasolina com base na paridade e no consumo específico do veículo.
+[![Baixar APK Android](https://img.shields.io/badge/📲_BAIXAR_APK_ANDROID-Clique_Aqui_para_Download-10b981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/lucasaosf/combustivel-brasil/releases/latest/download/EcoTanque-Combustivel-Brasil.apk)
+[![Versão](https://img.shields.io/badge/Versão-1.0.0-blue?style=for-the-badge)](https://github.com/lucasaosf/combustivel-brasil/releases)
+[![Status Build](https://img.shields.io/badge/Build-Automatizada-emerald?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/lucasaosf/combustivel-brasil/actions)
+
+<br/>
+
+**Aplicativo nativo para encontrar combustíveis mais baratos em tempo real por localização, com traçado de rotas por ruas, cálculo de tempo estimado (ETA) e validação fiscal de NFC-e (SEFAZ).**
+
+</div>
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## 📲 Download e Instalação no Celular
+
+Você pode baixar e instalar o aplicativo diretamente em qualquer smartphone Android:
+
+### 👉 [**CLIQUE AQUI PARA BAIXAR O APK (EcoTanque-Combustivel-Brasil.apk)**](https://github.com/lucasaosf/combustivel-brasil/releases/latest/download/EcoTanque-Combustivel-Brasil.apk)
+
+> *(Ou acesse a aba [**Releases**](https://github.com/lucasaosf/combustivel-brasil/releases) para escolher outras versões).*
+
+#### 🛠️ Como Instalar no Android em 3 Passos:
+1. Clique no botão de download acima direto pelo navegador do celular.
+2. Ao concluir o download, toque na notificação para abrir o arquivo `.apk`.
+3. Se o Android pedir autorização, ative a opção **"Permitir desta fonte"** e toque em **Instalar**.
+4. Abra o app: ele funciona diretamente em redes móveis (4G/5G) ou em qualquer Wi-Fi!
+
+---
+
+## ✨ Recursos do Aplicativo
+
+* **🗺️ Navegação com Traçado de Rotas:** Traça a rota veicular real por ruas e avenidas até o posto escolhido.
+* **⏱️ Tempo Estimado (ETA):** Calcula a distância real em km e a previsão de chegada em minutos (ex: `11 min • 4.8 km`).
+* **📡 Acompanhamento Contínuo (GPS em Tempo Real):** Atualiza a posição do usuário enquanto ele dirige e recalcula o trajeto dinamicamente.
+* **🏷️ Ranking de Menores Preços:** Marcadores coloridos por faixa de preço (Verde = mais barato, Amarelo = médio, Vermelho = alto).
+* **🌿 Calculadora Flex Inteligente:** Informa se compensa abastecer com Etanol ou Gasolina com base na paridade e no rendimento do carro.
+* **🧾 Validação de NFC-e (SEFAZ):** Integração com notas fiscais eletrônicas de 44 dígitos para confirmação verídica de preços na bomba.
+* **🛡️ Blindagem de Segurança:** Sem tráfego em texto claro (`usesCleartextTraffic="false"`), ofuscação Proguard/R8 contra engenharia reversa e Content Security Policy (CSP).
+
+---
+
+## 🏗️ Arquitetura do Projeto
 
 ```
-                 [ Usuário (Web / Mobile PWA) ]
-                               │
-               GPS: Latitude, Longitude, Raio (km)
-                               ▼
-        ┌──────────────────────────────────────────────┐
-        │        Frontend (React 19 + TypeScript)      │
-        │        Tailwind CSS + Leaflet Maps           │
-        └──────────────────────┬───────────────────────┘
-                               │
-                REST API / Supabase Client
-                               ▼
-        ┌──────────────────────────────────────────────┐
-        │           Backend (Python FastAPI)           │
-        │  - Algoritmo Geoespacial Haversine / PostGIS │
-        │  - Decodificador NFC-e Modelo 65             │
-        │  - Benchmark ANP por Estado                  │
-        └──────────────────────┬───────────────────────┘
-                               │
-                PostgreSQL + PostGIS (EPSG:4326)
-        ┌──────────────────────────────────────────────┐
-        │  Tabelas: postos, precos, historico_precos   │
-        │  Índice Espacial GIST em GEOMETRY(Point)     │
-        └──────────────────────────────────────────────┘
+combustivel-brasil/
+├── .github/workflows/
+│   └── build-apk.yml     # Compilação e publicação automática do APK no GitHub
+├── frontend/
+│   ├── android/          # Projeto nativo Android (Capacitor + Proguard + Manifest)
+│   ├── src/
+│   │   ├── components/   # Mapa (Leaflet), Lista, Painel de Navegação, Calculadora Flex
+│   │   ├── services/     # Roteamento viário OSRM, GPS contínuo e Overpass API
+│   │   └── types.ts      # Tipagens TypeScript
+│   └── capacitor.config.ts
+├── backend/              # API REST em Python (FastAPI + Decodificador Fiscal NFC-e)
+├── database/             # Schema geoespacial PostgreSQL com extensão PostGIS
+└── docker-compose.yml    # Orquestração com banco de dados PostGIS
 ```
 
 ---
 
-## 🚀 Como Executar o Projeto
+## 🚀 Como Subir Atualizações para o Repositório
 
-### Pré-requisitos
-* Node.js v18+ e npm
-* Python 3.10+ (opcional para rodar o backend local)
-* Docker e Docker Compose (opcional para rodar com banco PostGIS)
-
----
-
-### Opção 1: Rodar o Frontend Imediatamente (Modo Rápido / Standalone)
-
-O frontend possui inteligência própria com fallback autônomo, dados de postos em capitais brasileiras, integração com OpenStreetMap e persistência local.
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-Abra seu navegador em: `http://localhost:5173`
-
-* Dica: Permita o acesso à localização GPS no navegador ou use os botões de atalho no topo para testar instantaneamente em **São Paulo, Rio de Janeiro, Curitiba, Belo Horizonte, Brasília, Salvador, Porto Alegre ou Goiânia**.
-
----
-
-### Opção 2: Rodar o Backend em Python (FastAPI)
-
-```bash
-cd backend
-pip install -r requirements.txt
-python main.py
-```
-
-A API estará rodando em `http://localhost:8000`
-Documentação interativa Swagger: `http://localhost:8000/docs`
-
-#### Endpoints Principais:
-* `GET /api/postos?lat={lat}&lng={lng}&raio_km={km}&combustivel={tipo}&ordem={preco|distancia}`: Retorna postos ordenados por preço ou distância.
-* `POST /api/postos/{id}/preco`: Atualiza preço da bomba com validação colaborativa.
-* `POST /api/nfce/validar`: Decodifica chave de 44 dígitos da NFC-e da SEFAZ.
-* `GET /api/anp/benchmark/{uf}`: Preços médios de referência da ANP para o estado informado.
-
----
-
-### Opção 3: Rodar a Stack Completa via Docker Compose
-
-```bash
-docker-compose up -d
-```
-
-Isso inicializa automaticamente:
-* Banco PostgreSQL 16 com extensão **PostGIS** na porta `5432` com as tabelas criadas a partir de `database/schema.sql`.
-* Backend FastAPI na porta `8000`.
-* Frontend React na porta `5173`.
-
----
-
-## 🗄️ Banco de Dados Geoespacial (PostGIS)
-
-O arquivo `database/schema.sql` contém a estrutura completa para PostgreSQL / Supabase:
-
-* **Extensão PostGIS:** Criação de pontos `GEOMETRY(Point, 4326)`.
-* **Índices GIST:** Otimização para consultas de raio em milissegundos.
-* **Função SQL `fn_buscar_postos_proximos`:** Busca geográfica nativa calculando distâncias exatas na projeção da Terra.
-
----
-
-## 📦 Como Publicar no GitHub
-
-Para subir este repositório no seu GitHub (`lucasaosf`):
-
-1. Crie um novo repositório no seu GitHub com o nome `combustivel-brasil`.
-2. No terminal, dentro da pasta `combustivel-brasil`, execute:
+Para atualizar o código e gerar uma nova versão do APK automaticamente:
 
 ```bash
 git add .
-git commit -m "feat: lancamento inicial do EcoTanque Combustivel Brasil"
-git branch -M main
-git remote add origin https://github.com/lucasaosf/combustivel-brasil.git
-git push -u origin main
+git commit -m "feat: melhorias no app"
+git push origin main
 ```
+
+A automação do GitHub compilará o novo instalador e atualizará o link de download automaticamente!
 
 ---
 
 ## 📄 Licença
-Distribuído sob a licença MIT.
+Distribuído sob a licença MIT. Desenvolvido para motoristas de todo o Brasil.
