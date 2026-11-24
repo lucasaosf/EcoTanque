@@ -145,12 +145,17 @@ export const Mapa: React.FC<MapaProps> = ({
     setMapaDeslocado(false);
   }, [usuarioLat, usuarioLng]);
 
-  // 4. Atualização da posição do usuário (quando a cidade muda externamente)
+  // 4. Atualização da posição do usuário (quando a cidade muda externamente ou GPS é obtido)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
     map.invalidateSize();
+
+    // Quando novas coordenadas chegam (ex: GPS ativado na abertura), centraliza o mapa no usuário
+    if (!mapaDeslocado) {
+      map.setView([usuarioLat, usuarioLng], 15);
+    }
 
     // Atualiza marcador de GPS do usuário
     if (userMarkerRef.current) {

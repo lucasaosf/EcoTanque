@@ -8,6 +8,13 @@ import {
   gerarPostosLocaisGps,
   calcularDistanciaKm
 } from './services/postoService';
+import { 
+  solicitarPermissaoGPS, 
+  obterPosicaoAtualDispositivo, 
+  obterNomeLocalidade, 
+  iniciarWatcherGPS, 
+  pararWatcherGPS 
+} from './services/gpsService';
 import { calcularRotaVeicular, type RotaDetalhada } from './services/routingService';
 import { 
   verificarAtualizacaoDisponivel, 
@@ -67,7 +74,7 @@ export const App: React.FC = () => {
   const [modalCalculadoraAberto, setModalCalculadoraAberto] = useState<boolean>(false);
   const [modalAtualizarAberto, setModalAtualizarAberto] = useState<boolean>(false);
 
-  const watchIdRef = useRef<number | null>(null);
+  const watchIdRef = useRef<string | number | null>(null);
 
   // Selecionar posto e traçar rota viária com tempo estimado (ETA)
   const tracarRota = useCallback(async (posto: Posto, userLat: number, userLng: number) => {
@@ -75,6 +82,84 @@ export const App: React.FC = () => {
     setVisualizacao('mapa');
     const rota = await calcularRotaVeicular(userLat, userLng, posto.lat, posto.lng);
     setRotaAtiva(rota);
+  }, []);
+
+  // Obter localização via GPS do dispositivo (Nativo Android / Web)
+  const obterLocalizacaoGPS = useCallback(async () => {
+    setCarregandoGPS(true);
+    setMensagemGPS(null);
+
+    // 1. Dispara o pop-up nativo de permissão do celular
+    await solicitarPermissaoGPS();
+
+    // 2. Obtém as coordenadas reais do dispositivo
+    const coords = await obterPosicaoAtualDispositivo();
+
+    if (coords) {
+      setLat(coords.lat);
+      setLng(coords.lng);
+      setRastreandoAoVivo(true);
+      setCarregandoGPS(false);
+
+      // Injeta postos locais densos ao redor do GPS
+      const postosLocais = gerarPostosLocaisGps(coords.lat, coords.lng);
+      setPostos((anteriores) => {
+        const combinados = [...postosLocais, ...anteriores.filter(a => !postosLocais.some(b => b.id === a.id))];
+        salvarPostos(combinados);
+        return combinados;
+      });
+
+      // Busca o nome da localidade em segundo plano
+      obterNomeLocalidade(coords.lat, coords.lng).then((nome) => {
+        setCidadeNome(nome);
+      });
+    } else {
+      setCarregandoGPS(false);
+      setMensagemGPS('Permissão de GPS necessária para encontrar os postos mais próximos. Toque em "Permitir GPS" ou escolha uma cidade.');
+    }
+  }, []);
+
+  // 1. Ao abrir o app: Solicita a permissão do GPS do celular e centraliza na localização do dispositivo
+  useEffect(() => {
+    let montado = true;
+
+    const iniciarComGPSDoDispositivo = async () => {
+      setCarregandoGPS(true);
+      setMensagemGPS(null);
+
+      // Dispara o pop-up nativo de permissão do Android
+      await solicitarPermissaoGPS();
+
+      const coords = await obterPosicaoAtualDispositivo();
+      if (!montado) return;
+
+      if (coords) {
+        setLat(coords.lat);
+        setLng(coords.lng);
+        setRastreandoAoVivo(true);
+        setCarregandoGPS(false);
+
+        const postosLocais = gerarPostosLocaisGps(coords.lat, coords.lng);
+        setPostos((anteriores) => {
+          const combinados = [...postosLocais, ...anteriores.filter(a => !postosLocais.some(b => b.id === a.id))];
+          salvarPostos(combinados);
+          return combinados;
+        });
+
+        obterNomeLocalidade(coords.lat, coords.lng).then((nome) => {
+          if (montado) setCidadeNome(nome);
+        });
+      } else {
+        setCarregandoGPS(false);
+        setMensagemGPS('Permissão de GPS necessária para encontrar os postos perto de você. Toque em "Permitir GPS" ou escolha uma cidade.');
+      }
+    };
+
+    iniciarComGPSDoDispositivo();
+
+    return () => {
+      montado = false;
+    };
   }, []);
 
   // Sincronização Automática dos Dados e Preços
@@ -97,79 +182,14 @@ export const App: React.FC = () => {
       console.warn('Erro ao checar atualizacao de versao', e);
     }
 
-    // 2. Se o usuário estiver usando GPS ou forçado, atualiza os postos locais
-    if (forcarGPS || cidadeNome === 'Sua Localização GPS') {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            const userLat = pos.coords.latitude;
-            const userLng = pos.coords.longitude;
-            setLat(userLat);
-            setLng(userLng);
-            setCidadeNome('Sua Localização GPS');
+    // 2. Se forçado ou estiver no GPS, atualiza posição
+    if (forcarGPS || rastreandoAoVivo) {
+      const coords = await obterPosicaoAtualDispositivo();
+      if (coords) {
+        setLat(coords.lat);
+        setLng(coords.lng);
 
-            const postosLocais = await buscarPostosReaisOSM(userLat, userLng, raioKm);
-            if (postosLocais.length > 0) {
-              setPostos((anteriores) => {
-                const combinados = [...postosLocais, ...anteriores.filter(a => !postosLocais.some(b => b.id === a.id))];
-                salvarPostos(combinados);
-                return combinados;
-              });
-            }
-            setSincronizandoDados(false);
-          },
-          () => setSincronizandoDados(false),
-          { timeout: 8000, enableHighAccuracy: true }
-        );
-        return;
-      }
-    }
-
-    setSincronizandoDados(false);
-  }, [cidadeNome, raioKm]);
-
-  // Listener para quando o app volta a ter internet ou quando o usuário abre o app novamente
-  useEffect(() => {
-    // Executa sincronização inicial
-    sincronizarDadosAutomaticamente(false);
-
-    // Registra monitoramento de conexão automática
-    const desinscrever = registrarListenersConexao(
-      () => {
-        // Ao voltar online ou abrir novamente com internet
-        setEstaOnline(true);
-        sincronizarDadosAutomaticamente(false);
-      },
-      () => {
-        // Ao ficar offline
-        setEstaOnline(false);
-      }
-    );
-
-    return () => desinscrever();
-  }, [sincronizarDadosAutomaticamente]);
-
-  // Obter localização manual via GPS ao clicar no botão
-  const obterLocalizacaoGPS = () => {
-    if (!navigator.geolocation) {
-      setMensagemGPS('Geolocalização não suportada no seu navegador.');
-      return;
-    }
-
-    setCarregandoGPS(true);
-    setMensagemGPS(null);
-
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const userLat = pos.coords.latitude;
-        const userLng = pos.coords.longitude;
-        setLat(userLat);
-        setLng(userLng);
-        setCidadeNome('Sua Localização GPS');
-        setRastreandoAoVivo(true);
-        setCarregandoGPS(false);
-
-        const postosLocais = await buscarPostosReaisOSM(userLat, userLng, raioKm);
+        const postosLocais = await buscarPostosReaisOSM(coords.lat, coords.lng, raioKm);
         if (postosLocais.length > 0) {
           setPostos((anteriores) => {
             const combinados = [...postosLocais, ...anteriores.filter(a => !postosLocais.some(b => b.id === a.id))];
@@ -177,47 +197,61 @@ export const App: React.FC = () => {
             return combinados;
           });
         }
-      },
-      (err) => {
-        console.warn('GPS negado ou indisponível', err);
-        setMensagemGPS('Permissão de GPS não concedida. Toque em uma cidade acima para testar.');
-        setCarregandoGPS(false);
-      },
-      { timeout: 10000, enableHighAccuracy: true }
-    );
-  };
+      }
+    }
 
-  // Rastreamento Contínuo quando ativado
+    setSincronizandoDados(false);
+  }, [rastreandoAoVivo, raioKm]);
+
+  // Listener para quando o app volta a ter internet ou quando o usuário abre o app novamente
   useEffect(() => {
-    if (!navigator.geolocation || !rastreandoAoVivo) {
+    sincronizarDadosAutomaticamente(false);
+
+    const desinscrever = registrarListenersConexao(
+      () => {
+        setEstaOnline(true);
+        sincronizarDadosAutomaticamente(false);
+      },
+      () => {
+        setEstaOnline(false);
+      }
+    );
+
+    return () => desinscrever();
+  }, [sincronizarDadosAutomaticamente]);
+
+  // Rastreamento Contínuo com o Watcher Nativo do GPS quando ativado
+  useEffect(() => {
+    if (!rastreandoAoVivo) {
       if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
+        pararWatcherGPS(watchIdRef.current);
         watchIdRef.current = null;
       }
       return;
     }
 
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const novoLat = pos.coords.latitude;
-        const novoLng = pos.coords.longitude;
+    let ativo = true;
 
-        setLat(novoLat);
-        setLng(novoLng);
+    iniciarWatcherGPS((coords) => {
+      if (!ativo) return;
+      setLat(coords.lat);
+      setLng(coords.lng);
 
-        if (postoDestino) {
-          tracarRota(postoDestino, novoLat, novoLng);
-        }
-      },
-      (e) => console.warn('Erro GPS watcher', e),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
-    );
-
-    watchIdRef.current = watchId;
+      if (postoDestino) {
+        tracarRota(postoDestino, coords.lat, coords.lng);
+      }
+    }).then((id) => {
+      if (ativo) {
+        watchIdRef.current = id;
+      } else if (id) {
+        pararWatcherGPS(id);
+      }
+    });
 
     return () => {
+      ativo = false;
       if (watchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(watchIdRef.current);
+        pararWatcherGPS(watchIdRef.current);
         watchIdRef.current = null;
       }
     };
@@ -320,14 +354,27 @@ export const App: React.FC = () => {
         }}
       />
 
-      {/* Seletor Rápido de Cidades Brasileiras */}
-      <div className="bg-slate-900/80 border-b border-slate-800 px-4 py-2 overflow-x-auto no-scrollbar flex items-center gap-1.5 text-xs">
-        <span className="text-[11px] text-slate-400 font-semibold flex items-center gap-1 shrink-0">
-          <MapPin className="w-3 h-3 text-emerald-400" />
-          Testar Cidade:
+      {/* Seletor Rápido de Cidades Brasileiras e GPS */}
+      <div className="bg-slate-900/90 border-b border-slate-800 px-4 py-2 overflow-x-auto no-scrollbar flex items-center gap-2 text-xs">
+        {/* Botão de Retornar / Travar no GPS do Celular */}
+        <button
+          onClick={obterLocalizacaoGPS}
+          className={`px-3 py-1 rounded-md text-[11px] whitespace-nowrap transition-all flex items-center gap-1.5 font-bold shrink-0 ${
+            rastreandoAoVivo
+              ? 'bg-emerald-500 text-slate-950 shadow-md ring-2 ring-emerald-400/50'
+              : 'bg-emerald-950/70 text-emerald-300 border border-emerald-500/50 hover:bg-emerald-900/60'
+          }`}
+        >
+          <Navigation className={`w-3 h-3 text-emerald-400 ${carregandoGPS ? 'animate-spin' : ''}`} />
+          <span>📍 Meu GPS Ao Vivo</span>
+        </button>
+
+        <span className="text-[11px] text-slate-500 font-semibold flex items-center gap-1 shrink-0 ml-1">
+          <MapPin className="w-3 h-3 text-slate-400" />
+          Testar:
         </span>
         {CIDADES_TESTE.map((c) => {
-          const ativo = cidadeNome === c.nome;
+          const ativo = cidadeNome === c.nome && !rastreandoAoVivo;
           return (
             <button
               key={c.nome}
@@ -339,7 +386,7 @@ export const App: React.FC = () => {
                 setPostoDestino(null);
                 setRotaAtiva(null);
               }}
-              className={`px-2.5 py-1 rounded-md text-[11px] whitespace-nowrap transition-all ${
+              className={`px-2.5 py-1 rounded-md text-[11px] whitespace-nowrap transition-all shrink-0 ${
                 ativo
                   ? 'bg-emerald-500 text-slate-950 font-bold shadow-md'
                   : 'bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700'
@@ -350,6 +397,22 @@ export const App: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Banner Informativo / Solicitação de Permissão de GPS */}
+      {mensagemGPS && (
+        <div className="bg-amber-950/90 border-b border-amber-500/50 px-4 py-2 flex items-center justify-between text-xs text-amber-200 shadow-md">
+          <span className="flex items-center gap-2 truncate">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="truncate">{mensagemGPS}</span>
+          </span>
+          <button
+            onClick={obterLocalizacaoGPS}
+            className="px-3 py-1 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black rounded text-[11px] shrink-0 ml-2 shadow transition-all"
+          >
+            Permitir GPS
+          </button>
+        </div>
+      )}
 
       {/* Filtros e Métricas */}
       <Filtros
