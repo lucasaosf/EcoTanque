@@ -17,7 +17,7 @@ jobs:
       - name: Clonar Repositório
         uses: actions/checkout@v4
 
-      - name: Conceder Permissão de Execução ao Gradle Imediatamente
+      - name: Conceder Permissão de Execução ao Gradle
         run: chmod +x frontend/android/gradlew
 
       - name: Configurar Node.js
@@ -39,9 +39,9 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Sincronizar Capacitor Android
+      - name: Copiar Assets para o Android Nativo
         working-directory: frontend
-        run: npx @capacitor/cli sync android
+        run: npx @capacitor/cli copy android
 
       - name: Compilar APK Nativo Standalone
         working-directory: frontend/android
