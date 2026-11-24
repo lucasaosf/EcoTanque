@@ -39,7 +39,7 @@ jobs:
         working-directory: frontend
         run: npm run build
 
-      - name: Copiar Assets Web para o Android Nativo
+      - name: Atualizar Assets Web no Android Nativo
         working-directory: frontend
         run: |
           mkdir -p android/app/src/main/assets/public
