@@ -1,27 +1,44 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
-/* Estilos personalizados para os pins do mapa e animações */
+/* Força o container do Leaflet a ocupar todo o espaço disponível sem colapsar */
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 400px !important;
+  background-color: #0f172a !important;
+  font-family: inherit;
+}
+
+.leaflet-pane {
+  z-index: 10 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 20 !important;
+}
+
+/* Estilos personalizados para os pins do mapa */
 .custom-pin {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 9999px;
-  font-weight: 700;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-  transition: transform 0.2s ease;
+  font-weight: 800;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .custom-pin:hover {
-  transform: scale(1.15);
+  transform: scale(1.18);
   z-index: 1000 !important;
 }
 
-/* User GPS pulse animation */
+/* Animação do GPS pulsante */
 @keyframes pulse-ring {
-  0% { transform: scale(0.95); opacity: 0.8; }
-  50% { transform: scale(1.3); opacity: 0.2; }
-  100% { transform: scale(0.95); opacity: 0.8; }
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.4); opacity: 0.15; }
+  100% { transform: scale(0.9); opacity: 0.8; }
 }
 
 .gps-pulse {

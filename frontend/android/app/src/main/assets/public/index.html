@@ -10,13 +10,15 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="description" content="Encontre os combustíveis mais baratos em tempo real por localização em todo o Brasil com navegação, rotas e tempo estimado (ETA)." />
     
-    <!-- Blindagem de Segurança / Anti-vulnerabilidades (CSP) -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' capacitor: https: data: blob: 'unsafe-inline' 'unsafe-eval'; img-src 'self' data: blob: https: *.basemaps.cartocdn.com *.openstreetmap.org; connect-src 'self' https: wss: *.basemaps.cartocdn.com *.openstreetmap.org overpass-api.de router.project-osrm.org;" />
-    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <!-- CSP configurada para liberar carregamento de mapas OpenStreetMap e rotas em tempo real -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' capacitor: https: http: data: blob: 'unsafe-inline' 'unsafe-eval'; img-src * data: blob:; connect-src *; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:;" />
+    
+    <!-- Folha de estilo do Leaflet para garantir renderização perfeita em qualquer WebView -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     
     <title>EcoTanque - Combustível Mais Barato ao Vivo</title>
-    <script type="module" crossorigin src="/assets/index-BPwklsyc.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-Chrkq4lg.css">
+    <script type="module" crossorigin src="/assets/index-CN_qwSmy.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DKig9_oc.css">
   </head>
   <body class="bg-slate-950 text-slate-100 overflow-x-hidden select-none">
     <div id="root"></div>
