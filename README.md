@@ -2,9 +2,9 @@
 
 <div align="center">
 
-[![Baixar APK Android](https://img.shields.io/badge/📲_BAIXAR_APK_ANDROID-Clique_Aqui_para_Download-10b981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/lucasaosf/combustivel-brasil/releases/latest/download/EcoTanque-Combustivel-Brasil.apk)
-[![Versão](https://img.shields.io/badge/Versão-1.0.0-blue?style=for-the-badge)](https://github.com/lucasaosf/combustivel-brasil/releases)
-[![Status Build](https://img.shields.io/badge/Build-Automatizada-emerald?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/lucasaosf/combustivel-brasil/actions)
+[![Baixar APK Android](https://img.shields.io/badge/📲_BAIXAR_APK_ANDROID-Clique_Aqui_para_Download-10b981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/lucasaosf/EcoTanque/releases/latest/download/EcoTanque-Combustivel-Brasil.apk)
+[![Versão](https://img.shields.io/badge/Versão-1.0.0-blue?style=for-the-badge)](https://github.com/lucasaosf/EcoTanque/releases)
+[![Status Build](https://img.shields.io/badge/Build-Automatizada-emerald?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/lucasaosf/EcoTanque/actions)
 
 <br/>
 
@@ -18,9 +18,9 @@
 
 Você pode baixar e instalar o aplicativo diretamente em qualquer smartphone Android:
 
-### 👉 [**CLIQUE AQUI PARA BAIXAR O APK (EcoTanque-Combustivel-Brasil.apk)**](https://github.com/lucasaosf/combustivel-brasil/releases/latest/download/EcoTanque-Combustivel-Brasil.apk)
+### 👉 [**CLIQUE AQUI PARA BAIXAR O APK (EcoTanque-Combustivel-Brasil.apk)**](https://github.com/lucasaosf/EcoTanque/releases/latest/download/EcoTanque-Combustivel-Brasil.apk)
 
-> *(Ou acesse a aba [**Releases**](https://github.com/lucasaosf/combustivel-brasil/releases) para escolher outras versões).*
+> *(Ou acesse a aba [**Releases**](https://github.com/lucasaosf/EcoTanque/releases) para escolher outras versões).*
 
 #### 🛠️ Como Instalar no Android em 3 Passos:
 1. Clique no botão de download acima direto pelo navegador do celular.
@@ -45,7 +45,7 @@ Você pode baixar e instalar o aplicativo diretamente em qualquer smartphone And
 ## 🏗️ Arquitetura do Projeto
 
 ```
-combustivel-brasil/
+EcoTanque/
 ├── .github/workflows/
 │   └── build-apk.yml     # Compilação e publicação automática do APK no GitHub
 ├── frontend/
