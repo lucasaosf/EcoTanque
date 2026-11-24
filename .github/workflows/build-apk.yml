@@ -1,0 +1,53 @@
+name: Build Android APK (EcoTanque)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Gerar APK Standalone
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar Repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Configurar Java (JDK 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Configurar Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Instalar Dependências e Compilar Frontend
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+          npx cap sync android
+
+      - name: Conceder Permissão de Execução ao Gradle
+        working-directory: frontend/android
+        run: chmod +x gradlew
+
+      - name: Compilar APK Nativo (Debug Standalone)
+        working-directory: frontend/android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload do APK Pronto para Download
+        uses: actions/upload-artifact@v4
+        with:
+          name: EcoTanque-Combustivel-Brasil-v1.0.apk
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
