@@ -64,7 +64,7 @@ export const App: React.FC = () => {
     setRotaAtiva(rota);
   }, []);
 
-  // Rastreamento Contínuo de GPS (watchPosition)
+  // Rastreamento Otimizado de GPS (com proteção de bateria e suspensão em segundo plano)
   useEffect(() => {
     if (!navigator.geolocation || !rastreandoAoVivo) {
       if (watchIdRef.current !== null) {
@@ -74,41 +74,67 @@ export const App: React.FC = () => {
       return;
     }
 
-    setCarregandoGPS(true);
+    const iniciarGPS = () => {
+      if (watchIdRef.current !== null) return;
 
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const novoLat = pos.coords.latitude;
-        const novoLng = pos.coords.longitude;
-        setLat(novoLat);
-        setLng(novoLng);
-        setCarregandoGPS(false);
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const novoLat = pos.coords.latitude;
+          const novoLng = pos.coords.longitude;
+          
+          // Economia de bateria e processador: só atualiza se mover mais de 15 metros
+          setLat((prevLat) => {
+            const dist = Math.abs(prevLat - novoLat) + Math.abs(lng - novoLng);
+            return dist > 0.00015 ? novoLat : prevLat;
+          });
+          setLng((prevLng) => {
+            const dist = Math.abs(lat - novoLat) + Math.abs(prevLng - novoLng);
+            return dist > 0.00015 ? novoLng : prevLng;
+          });
 
-        // Se houver rota ativa, recalcula ETA e distância com base na nova posição
-        if (postoDestino) {
-          tracarRota(postoDestino, novoLat, novoLng);
+          setCarregandoGPS(false);
+
+          if (postoDestino) {
+            tracarRota(postoDestino, novoLat, novoLng);
+          }
+        },
+        (erro) => {
+          console.warn('Erro ao acompanhar GPS contínuo:', erro.message);
+          setCarregandoGPS(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 5000, // Usa cache de 5s para poupar bateria
         }
-      },
-      (erro) => {
-        console.warn('Erro ao acompanhar GPS contínuo:', erro.message);
-        setCarregandoGPS(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 3000,
-      }
-    );
+      );
+      watchIdRef.current = watchId;
+    };
 
-    watchIdRef.current = watchId;
-
-    return () => {
+    const pararGPS = () => {
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
     };
-  }, [rastreandoAoVivo, postoDestino, tracarRota]);
+
+    // Gerenciamento inteligente de bateria: pausa o GPS se a tela for desligada ou minimizada
+    const handleVisibilidade = () => {
+      if (document.hidden) {
+        pararGPS();
+      } else if (rastreandoAoVivo) {
+        iniciarGPS();
+      }
+    };
+
+    iniciarGPS();
+    document.addEventListener('visibilitychange', handleVisibilidade);
+
+    return () => {
+      pararGPS();
+      document.removeEventListener('visibilitychange', handleVisibilidade);
+    };
+  }, [rastreandoAoVivo, postoDestino, tracarRota, lat, lng]);
 
   // Forçar atualização do GPS manual
   const obterLocalizacaoGPS = () => {
