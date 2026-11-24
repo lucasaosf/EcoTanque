@@ -17,12 +17,15 @@ jobs:
       - name: Clonar Repositório
         uses: actions/checkout@v4
 
+      - name: Conceder Permissão de Execução ao Gradle Imediatamente
+        run: chmod +x frontend/android/gradlew
+
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Configurar Java (JDK 21 para AGP 8.13+)
+      - name: Configurar Java (JDK 21)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -38,13 +41,9 @@ jobs:
 
       - name: Sincronizar Capacitor Android
         working-directory: frontend
-        run: npx cap sync android
+        run: npx @capacitor/cli sync android
 
-      - name: Conceder Permissão de Execução ao Gradle
-        working-directory: frontend/android
-        run: chmod +x gradlew
-
-      - name: Compilar APK Nativo (Debug Standalone)
+      - name: Compilar APK Nativo Standalone
         working-directory: frontend/android
         run: ./gradlew assembleDebug --no-daemon --stacktrace
 
