@@ -1,9 +1,11 @@
 import React from 'react';
-import { Fuel, MapPin, RefreshCw, Calculator, PlusCircle, Map as MapIcon, List } from 'lucide-react';
+import { Fuel, MapPin, RefreshCw, Calculator, PlusCircle, Map as MapIcon, List, WifiOff } from 'lucide-react';
 
 interface HeaderProps {
   cidadeAtual: string;
   carregando: boolean;
+  online: boolean;
+  sincronizando: boolean;
   onAtualizarLocalizacao: () => void;
   visualizacao: 'mapa' | 'lista';
   setVisualizacao: (v: 'mapa' | 'lista') => void;
@@ -14,6 +16,8 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   cidadeAtual,
   carregando,
+  online,
+  sincronizando,
   onAtualizarLocalizacao,
   visualizacao,
   setVisualizacao,
@@ -22,8 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 text-white shadow-lg">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
-        {/* Logo e Nome */}
+      <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
+        {/* Logo, Nome e Status de Rede */}
         <div className="flex items-center gap-2.5">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-md shadow-emerald-500/20">
             <Fuel className="w-5 h-5 text-slate-950 font-bold" />
@@ -33,13 +37,26 @@ export const Header: React.FC<HeaderProps> = ({
               <h1 className="font-extrabold text-lg sm:text-xl tracking-tight leading-none bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
                 EcoTanque
               </h1>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Ao Vivo
-              </span>
+              {online ? (
+                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Ao Vivo
+                </span>
+              ) : (
+                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                  <WifiOff className="w-2.5 h-2.5" />
+                  Offline
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1 text-xs text-slate-400 mt-0.5">
               <MapPin className="w-3 h-3 text-emerald-400 shrink-0" />
               <span className="truncate max-w-[140px] sm:max-w-xs">{cidadeAtual}</span>
+              {sincronizando && (
+                <span className="text-[10px] text-emerald-400 italic font-semibold ml-1 animate-pulse">
+                  (sincronizando...)
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -97,11 +114,11 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Botão de Localização GPS */}
           <button
             onClick={onAtualizarLocalizacao}
-            disabled={carregando}
+            disabled={carregando || sincronizando}
             className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white transition-colors disabled:opacity-50"
-            title="Atualizar GPS"
+            title="Atualizar GPS e Preços Agora"
           >
-            <RefreshCw className={`w-4 h-4 ${carregando ? 'animate-spin text-emerald-400' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${carregando || sincronizando ? 'animate-spin text-emerald-400' : ''}`} />
           </button>
         </div>
       </div>

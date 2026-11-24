@@ -7,6 +7,11 @@ import {
   buscarPostosReaisOSM 
 } from './services/postoService';
 import { calcularRotaVeicular, type RotaDetalhada } from './services/routingService';
+import { 
+  verificarAtualizacaoDisponivel, 
+  registrarListenersConexao, 
+  type InfoAtualizacao 
+} from './services/updateService';
 import { Header } from './components/Header';
 import { Filtros } from './components/Filtros';
 import { Mapa } from './components/Mapa';
@@ -14,6 +19,7 @@ import { ListaPostos } from './components/ListaPostos';
 import { PainelNavegacao } from './components/PainelNavegacao';
 import { CalculadoraFlex } from './components/CalculadoraFlex';
 import { ModalAtualizarPreco } from './components/ModalAtualizarPreco';
+import { ModalAtualizacaoDisponivel } from './components/ModalAtualizacaoDisponivel';
 import { MapPin, Sparkles, AlertCircle, Navigation } from 'lucide-react';
 
 const CIDADES_TESTE = [
@@ -28,13 +34,18 @@ const CIDADES_TESTE = [
 ];
 
 export const App: React.FC = () => {
-  // Posição inicial: São Paulo
+  // Posição do usuário
   const [lat, setLat] = useState<number>(-23.5682);
   const [lng, setLng] = useState<number>(-46.6534);
   const [cidadeNome, setCidadeNome] = useState<string>('São Paulo (SP)');
   const [carregandoGPS, setCarregandoGPS] = useState<boolean>(false);
   const [mensagemGPS, setMensagemGPS] = useState<string | null>(null);
   const [rastreandoAoVivo, setRastreandoAoVivo] = useState<boolean>(false);
+
+  // Status de Conectividade e Auto-Sincronização
+  const [estaOnline, setEstaOnline] = useState<boolean>(navigator.onLine);
+  const [sincronizandoDados, setSincronizandoDados] = useState<boolean>(false);
+  const [infoAtualizacao, setInfoAtualizacao] = useState<InfoAtualizacao | null>(null);
 
   // Filtros
   const [combustivel, setCombustivel] = useState<CombustivelTipo>('gasolina_comum');
@@ -64,7 +75,79 @@ export const App: React.FC = () => {
     setRotaAtiva(rota);
   }, []);
 
-  // Obter localização real do usuário via GPS
+  // Sincronização Automática dos Dados e Preços
+  const sincronizarDadosAutomaticamente = useCallback(async (forcarGPS = false) => {
+    if (!navigator.onLine) {
+      setEstaOnline(false);
+      return;
+    }
+
+    setEstaOnline(true);
+    setSincronizandoDados(true);
+
+    // 1. Verifica se há nova versão do APK disponível no GitHub
+    try {
+      const update = await verificarAtualizacaoDisponivel();
+      if (update.temAtualizacao) {
+        setInfoAtualizacao(update);
+      }
+    } catch (e) {
+      console.warn('Erro ao checar atualizacao de versao', e);
+    }
+
+    // 2. Se o usuário estiver usando GPS ou forçado, atualiza os postos locais
+    if (forcarGPS || cidadeNome === 'Sua Localização GPS') {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const userLat = pos.coords.latitude;
+            const userLng = pos.coords.longitude;
+            setLat(userLat);
+            setLng(userLng);
+            setCidadeNome('Sua Localização GPS');
+
+            const postosLocais = await buscarPostosReaisOSM(userLat, userLng, raioKm);
+            if (postosLocais.length > 0) {
+              setPostos((anteriores) => {
+                const combinados = [...postosLocais, ...anteriores.filter(a => !postosLocais.some(b => b.id === a.id))];
+                salvarPostos(combinados);
+                return combinados;
+              });
+            }
+            setSincronizandoDados(false);
+          },
+          () => setSincronizandoDados(false),
+          { timeout: 8000, enableHighAccuracy: true }
+        );
+        return;
+      }
+    }
+
+    setSincronizandoDados(false);
+  }, [cidadeNome, raioKm]);
+
+  // Listener para quando o app volta a ter internet ou quando o usuário abre o app novamente
+  useEffect(() => {
+    // Executa sincronização inicial
+    sincronizarDadosAutomaticamente(false);
+
+    // Registra monitoramento de conexão automática
+    const desinscrever = registrarListenersConexao(
+      () => {
+        // Ao voltar online ou abrir novamente com internet
+        setEstaOnline(true);
+        sincronizarDadosAutomaticamente(false);
+      },
+      () => {
+        // Ao ficar offline
+        setEstaOnline(false);
+      }
+    );
+
+    return () => desinscrever();
+  }, [sincronizarDadosAutomaticamente]);
+
+  // Obter localização manual via GPS ao clicar no botão
   const obterLocalizacaoGPS = () => {
     if (!navigator.geolocation) {
       setMensagemGPS('Geolocalização não suportada no seu navegador.');
@@ -84,7 +167,6 @@ export const App: React.FC = () => {
         setRastreandoAoVivo(true);
         setCarregandoGPS(false);
 
-        // Busca ou gera postos locais ao redor do GPS do usuário
         const postosLocais = await buscarPostosReaisOSM(userLat, userLng, raioKm);
         if (postosLocais.length > 0) {
           setPostos((anteriores) => {
@@ -207,10 +289,12 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* Header Principal */}
+      {/* Header Principal com Status de Rede e Auto-Sync */}
       <Header
         cidadeAtual={cidadeNome}
         carregando={carregandoGPS}
+        online={estaOnline}
+        sincronizando={sincronizandoDados}
         onAtualizarLocalizacao={obterLocalizacaoGPS}
         visualizacao={visualizacao}
         setVisualizacao={setVisualizacao}
@@ -365,6 +449,14 @@ export const App: React.FC = () => {
         postoSelecionado={postoParaEditar}
         onSalvarPreco={handleSalvarPreco}
       />
+
+      {/* Modal Automático de Nova Versão Encontrada */}
+      {infoAtualizacao && (
+        <ModalAtualizacaoDisponivel
+          info={infoAtualizacao}
+          onFechar={() => setInfoAtualizacao(null)}
+        />
+      )}
     </div>
   );
 };
