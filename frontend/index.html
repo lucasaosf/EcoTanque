@@ -10,11 +10,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="description" content="Encontre os combustíveis mais baratos em tempo real por localização em todo o Brasil com navegação, rotas e tempo estimado (ETA)." />
     
-    <!-- CSP configurada para liberar carregamento de mapas OpenStreetMap e rotas em tempo real -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' capacitor: https: http: data: blob: 'unsafe-inline' 'unsafe-eval'; img-src * data: blob:; connect-src *; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:;" />
-    
-    <!-- Folha de estilo do Leaflet para garantir renderização perfeita em qualquer WebView -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <!-- CSP configurada para liberar carregamento de mapas de satélite, OpenStreetMap e rotas em tempo real -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' capacitor: https: http: data: blob: 'unsafe-inline' 'unsafe-eval'; img-src * data: blob: https: http:; connect-src *; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:;" />
     
     <title>EcoTanque - Combustível Mais Barato ao Vivo</title>
   </head>

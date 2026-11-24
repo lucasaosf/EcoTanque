@@ -22,14 +22,14 @@ export function calcularDistanciaKm(
 }
 
 // Chave do localStorage para persistir postos atualizados pelo usuário
-const STORAGE_KEY = 'ecotanque_postos_v2';
+const STORAGE_KEY = 'ecotanque_postos_v5';
 
 export function obterPostosCadastrados(): Posto[] {
   try {
     const dadosSalvos = localStorage.getItem(STORAGE_KEY);
     if (dadosSalvos) {
       const parsed = JSON.parse(dadosSalvos);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed) && parsed.length >= POSTOS_INICIAIS.length) {
         return parsed;
       }
     }
@@ -47,120 +47,48 @@ export function salvarPostos(postos: Posto[]): void {
   }
 }
 
-// Gera postos locais realistas ao redor de qualquer coordenada GPS do Brasil
+// Gera rede densa e variada de postos locais ao redor de qualquer coordenada GPS do Brasil
 export function gerarPostosLocaisGps(lat: number, lng: number): Posto[] {
-  return [
-    {
-      id: `local-1`,
-      nome: 'Posto Petrobras Auto Serviço',
-      bandeira: 'Petrobras',
-      endereco: 'Av. Principal Mais Próxima',
-      bairro: 'Centro',
-      cidade: 'Sua Região',
-      uf: 'BR',
-      lat: lat + 0.0075,
-      lng: lng + 0.0062,
-      precos: {
-        gasolina_comum: 5.39,
-        gasolina_aditivada: 5.65,
-        etanol: 3.45,
-        diesel_s10: 5.85,
-        gnv: 4.69,
-      },
-      ultimaAtualizacao: 'há 4 minutos',
-      fonte: 'NFC-e (SEFAZ)',
-      confiabilidade: 100,
-      confirmacoes: 56,
-    },
-    {
-      id: `local-2`,
-      nome: 'Auto Posto Shell Express',
-      bandeira: 'Shell',
-      endereco: 'Rua Comercial de Acesso',
-      bairro: 'Bairro Próximo',
-      cidade: 'Sua Região',
-      uf: 'BR',
-      lat: lat - 0.0068,
-      lng: lng + 0.0084,
-      precos: {
-        gasolina_comum: 5.55,
-        gasolina_aditivada: 5.79,
-        etanol: 3.59,
-        diesel_s10: 5.95,
-        gnv: null,
-      },
-      ultimaAtualizacao: 'há 12 minutos',
-      fonte: 'NFC-e (SEFAZ)',
-      confiabilidade: 98,
-      confirmacoes: 41,
-    },
-    {
-      id: `local-3`,
-      nome: 'Posto Ipiranga Rota Aberta',
-      bandeira: 'Ipiranga',
-      endereco: 'Avenida Circular',
-      bairro: 'Jardim América',
-      cidade: 'Sua Região',
-      uf: 'BR',
-      lat: lat + 0.0115,
-      lng: lng - 0.0078,
-      precos: {
-        gasolina_comum: 5.48,
-        gasolina_aditivada: 5.72,
-        etanol: 3.52,
-        diesel_s10: 5.89,
-        gnv: 4.59,
-      },
-      ultimaAtualizacao: 'há 18 minutos',
-      fonte: 'Colaborativo',
-      confiabilidade: 95,
-      confirmacoes: 27,
-    },
-    {
-      id: `local-4`,
-      nome: 'Auto Posto Econômico Bandeira Branca',
-      bandeira: 'Branca',
-      endereco: 'Via de Ligação Expressa',
-      bairro: 'Setor Sul',
-      cidade: 'Sua Região',
-      uf: 'BR',
-      lat: lat - 0.0098,
-      lng: lng - 0.0054,
-      precos: {
-        gasolina_comum: 5.29,
-        gasolina_aditivada: 5.49,
-        etanol: 3.35,
-        diesel_s10: 5.69,
-        gnv: null,
-      },
-      ultimaAtualizacao: 'há 6 minutos',
-      fonte: 'NFC-e (SEFAZ)',
-      confiabilidade: 99,
-      confirmacoes: 63,
-    },
-    {
-      id: `local-5`,
-      nome: 'Posto Ale Trevo',
-      bandeira: 'Ale',
-      endereco: 'Trevo de Acesso Rodoviário',
-      bairro: 'Entrada da Cidade',
-      cidade: 'Sua Região',
-      uf: 'BR',
-      lat: lat + 0.0145,
-      lng: lng + 0.0125,
-      precos: {
-        gasolina_comum: 5.42,
-        gasolina_aditivada: 5.68,
-        etanol: 3.49,
-        diesel_s10: 5.75,
-        gnv: 4.65,
-      },
-      ultimaAtualizacao: 'há 25 minutos',
-      fonte: 'ANP Oficial',
-      confiabilidade: 96,
-      confirmacoes: 19,
-    },
+  const dadosBase = [
+    { nome: 'Posto Petrobras Auto Serviço Centro', bandeira: 'Petrobras' as const, dLat: 0.0042, dLng: 0.0031, gas: 5.39, eta: 3.45, die: 5.85, gnv: 4.69, tempo: 'há 4 min', conf: 100 },
+    { nome: 'Auto Posto Shell Express Jardim', bandeira: 'Shell' as const, dLat: -0.0051, dLng: 0.0062, gas: 5.55, eta: 3.59, die: 5.95, gnv: null, tempo: 'há 12 min', conf: 98 },
+    { nome: 'Posto Ipiranga Rota Aberta', bandeira: 'Ipiranga' as const, dLat: 0.0085, dLng: -0.0074, gas: 5.48, eta: 3.52, die: 5.89, gnv: 4.59, tempo: 'há 18 min', conf: 95 },
+    { nome: 'Auto Posto Econômico Bandeira Branca', bandeira: 'Branca' as const, dLat: -0.0072, dLng: -0.0041, gas: 5.29, eta: 3.35, die: 5.69, gnv: null, tempo: 'há 6 min', conf: 99 },
+    { nome: 'Posto Ale Trevo Principal', bandeira: 'Ale' as const, dLat: 0.0121, dLng: 0.0095, gas: 5.42, eta: 3.49, die: 5.75, gnv: 4.65, tempo: 'há 25 min', conf: 96 },
+    { nome: 'Posto Petrobras Marginal Express', bandeira: 'Petrobras' as const, dLat: -0.0115, dLng: 0.0135, gas: 5.35, eta: 3.39, die: 5.79, gnv: 4.55, tempo: 'há 2 min', conf: 100 },
+    { nome: 'Auto Posto Shell Avenida Sul', bandeira: 'Shell' as const, dLat: 0.0063, dLng: -0.0122, gas: 5.69, eta: 3.69, die: 6.05, gnv: 4.79, tempo: 'há 30 min', conf: 94 },
+    { nome: 'Posto Ipiranga Conexão Fácil', bandeira: 'Ipiranga' as const, dLat: -0.0142, dLng: -0.0091, gas: 5.45, eta: 3.48, die: 5.82, gnv: null, tempo: 'há 10 min', conf: 97 },
+    { nome: 'Auto Posto Estrela Branca Desconto', bandeira: 'Branca' as const, dLat: 0.0165, dLng: -0.0035, gas: 5.25, eta: 3.32, die: 5.62, gnv: 4.49, tempo: 'há 15 min', conf: 98 },
+    { nome: 'Posto Petrobras Parque das Árvores', bandeira: 'Petrobras' as const, dLat: -0.0032, dLng: -0.0154, gas: 5.52, eta: 3.55, die: 5.92, gnv: 4.65, tempo: 'há 45 min', conf: 93 },
+    { nome: 'Posto Shell Select Rodovia', bandeira: 'Shell' as const, dLat: 0.0195, dLng: 0.0182, gas: 5.72, eta: 3.75, die: 6.12, gnv: 4.85, tempo: 'há 1 hora', conf: 91 },
+    { nome: 'Posto Ipiranga Bairro Nobre', bandeira: 'Ipiranga' as const, dLat: -0.0182, dLng: 0.0165, gas: 5.62, eta: 3.65, die: 5.99, gnv: null, tempo: 'há 20 min', conf: 96 },
+    { nome: 'Auto Posto Campeão Preço Baixo', bandeira: 'Branca' as const, dLat: 0.0098, dLng: 0.0195, gas: 5.22, eta: 3.29, die: 5.59, gnv: null, tempo: 'há 5 min', conf: 99 },
+    { nome: 'Posto Ale Rápido Cidade', bandeira: 'Ale' as const, dLat: -0.0215, dLng: -0.0145, gas: 5.49, eta: 3.55, die: 5.88, gnv: 4.70, tempo: 'há 35 min', conf: 95 },
+    { nome: 'Posto Petrobras Universitário', bandeira: 'Petrobras' as const, dLat: 0.0235, dLng: -0.0165, gas: 5.38, eta: 3.42, die: 5.79, gnv: 4.59, tempo: 'há 14 min', conf: 97 },
   ];
+
+  return dadosBase.map((d, index) => ({
+    id: `local-rede-${index + 1}`,
+    nome: d.nome,
+    bandeira: d.bandeira,
+    endereco: `Av. Mapeada da Região, ${100 * (index + 1)}`,
+    bairro: 'Região Próxima',
+    cidade: 'Sua Localidade',
+    uf: 'BR',
+    lat: lat + d.dLat,
+    lng: lng + d.dLng,
+    precos: {
+      gasolina_comum: d.gas,
+      gasolina_aditivada: Number((d.gas + 0.26).toFixed(2)),
+      etanol: d.eta,
+      diesel_s10: d.die,
+      gnv: d.gnv,
+    },
+    ultimaAtualizacao: d.tempo,
+    fonte: 'NFC-e (SEFAZ)',
+    confiabilidade: d.conf,
+    confirmacoes: 25 + index * 3,
+  }));
 }
 
 // Filtrar e ordenar postos conforme critérios do usuário

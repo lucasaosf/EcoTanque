@@ -1,22 +1,21 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
-/* Força o container do Leaflet a ocupar todo o espaço disponível sem colapsar */
+/* Leaflet Container Responsivo e Estável */
 .leaflet-container {
   width: 100% !important;
   height: 100% !important;
-  min-height: 400px !important;
-  background-color: #0f172a !important;
+  min-height: 420px !important;
   font-family: inherit;
+  outline: none;
+  background: #0f172a;
 }
 
-.leaflet-pane {
-  z-index: 10 !important;
-}
-
-.leaflet-top,
-.leaflet-bottom {
-  z-index: 20 !important;
+/* Transparência obrigatória para ícones divIcon do Leaflet */
+.fuel-marker-container,
+.user-gps-marker {
+  background: transparent !important;
+  border: none !important;
 }
 
 /* Estilos personalizados para os pins do mapa */
@@ -25,13 +24,14 @@
   align-items: center;
   justify-content: center;
   font-weight: 800;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.custom-pin:hover {
-  transform: scale(1.18);
-  z-index: 1000 !important;
+.custom-pin:hover,
+.custom-pin:active {
+  transform: scale(1.15);
+  z-index: 9999 !important;
 }
 
 /* Animação do GPS pulsante */

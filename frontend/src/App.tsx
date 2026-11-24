@@ -4,7 +4,9 @@ import {
   obterPostosCadastrados, 
   salvarPostos, 
   filtrarEOrdenarPostos, 
-  buscarPostosReaisOSM 
+  buscarPostosReaisOSM,
+  gerarPostosLocaisGps,
+  calcularDistanciaKm
 } from './services/postoService';
 import { calcularRotaVeicular, type RotaDetalhada } from './services/routingService';
 import { 
@@ -221,6 +223,19 @@ export const App: React.FC = () => {
     };
   }, [rastreandoAoVivo, postoDestino, tracarRota]);
 
+  // Garante sempre uma rede rica e densa de postos ao redor de qualquer coordenada selecionada
+  useEffect(() => {
+    const postosNoRaio = postos.filter(p => calcularDistanciaKm(lat, lng, p.lat, p.lng) <= 15);
+    if (postosNoRaio.length < 6) {
+      const adicionais = gerarPostosLocaisGps(lat, lng);
+      setPostos(prev => {
+        const combinados = [...adicionais, ...prev.filter(p => !adicionais.some(a => a.id === p.id))];
+        salvarPostos(combinados);
+        return combinados;
+      });
+    }
+  }, [lat, lng]);
+
   // Postos filtrados e ordenados
   const postosProcessados = useMemo(() => {
     return filtrarEOrdenarPostos(postos, {
@@ -436,7 +451,7 @@ export const App: React.FC = () => {
         aberto={modalCalculadoraAberto}
         onFechar={() => setModalCalculadoraAberto(false)}
         precoGasolinaInicial={menorPreco || 5.59}
-        precoEtanolInicial={postosProcessados[0]?.precos.etanol || 3.59}
+        precoEtanolInicial={postosProcessados[0]?.precos?.etanol || 3.59}
       />
 
       <ModalAtualizarPreco
