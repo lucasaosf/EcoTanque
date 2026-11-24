@@ -22,18 +22,23 @@ jobs:
         with:
           node-version: 20
 
-      - name: Configurar Java (JDK 17)
+      - name: Configurar Java (JDK 21 para AGP 8.13+)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
-      - name: Instalar Dependências e Compilar Frontend
+      - name: Instalar Dependências do Frontend
         working-directory: frontend
-        run: |
-          npm install
-          npm run build
-          npx cap sync android
+        run: npm install --legacy-peer-deps
+
+      - name: Compilar Frontend Web
+        working-directory: frontend
+        run: npm run build
+
+      - name: Sincronizar Capacitor Android
+        working-directory: frontend
+        run: npx cap sync android
 
       - name: Conceder Permissão de Execução ao Gradle
         working-directory: frontend/android
