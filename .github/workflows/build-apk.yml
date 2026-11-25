@@ -47,12 +47,16 @@ jobs:
 
       - name: Gerar Chave Criptográfica de Assinatura (Keystore)
         run: |
+          GEN_PASS=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 24)
           keytool -genkeypair -v -storetype PKCS12 \
             -keystore frontend/android/app/ecotanque-release.keystore \
             -alias ecotanque \
             -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass ecotanque2026 -keypass ecotanque2026 \
+            -storepass "$GEN_PASS" -keypass "$GEN_PASS" \
             -dname "CN=EcoTanque, OU=Mobile, O=EcoTanque, L=Sao Paulo, ST=SP, C=BR"
+          echo "RELEASE_STORE_PASSWORD=$GEN_PASS" >> $GITHUB_ENV
+          echo "RELEASE_KEY_PASSWORD=$GEN_PASS" >> $GITHUB_ENV
+          echo "RELEASE_KEY_ALIAS=ecotanque" >> $GITHUB_ENV
 
       - name: Compilar APK Nativo Standalone com Gradle
         working-directory: frontend/android
