@@ -7,7 +7,9 @@ import {
   filtrarEOrdenarPostos, 
   buscarPostosReaisOSM,
   gerarPostosLocaisGps,
-  calcularDistanciaKm
+  calcularDistanciaKm,
+  obterUltimaPosicaoSalva,
+  salvarUltimaPosicao
 } from './services/postoService';
 import { 
   solicitarPermissaoGPS, 
@@ -33,7 +35,7 @@ import { ModalAtualizacaoDisponivel } from './components/ModalAtualizacaoDisponi
 import { ModalPlanoPro } from './components/ModalPlanoPro';
 import { BannerAnuncio } from './components/BannerAnuncio';
 import { obterStatusAssinatura, type InfoAssinatura } from './services/subscriptionService';
-import { MapPin, Sparkles, AlertCircle, Navigation } from 'lucide-react';
+import { MapPin, Sparkles, AlertCircle, Navigation, WifiOff, List, Map as MapIcon } from 'lucide-react';
 
 const CIDADES_TESTE = [
   { nome: 'São Paulo (SP)', lat: -23.5682, lng: -46.6534 },
@@ -47,10 +49,11 @@ const CIDADES_TESTE = [
 ];
 
 export const App: React.FC = () => {
-  // Posição do usuário
-  const [lat, setLat] = useState<number>(-23.5682);
-  const [lng, setLng] = useState<number>(-46.6534);
-  const [cidadeNome, setCidadeNome] = useState<string>('São Paulo (SP)');
+  // Posição inicial: recupera última posição salva offline ou padrão
+  const posicaoCache = useMemo(() => obterUltimaPosicaoSalva(), []);
+  const [lat, setLat] = useState<number>(posicaoCache?.lat ?? -23.5682);
+  const [lng, setLng] = useState<number>(posicaoCache?.lng ?? -46.6534);
+  const [cidadeNome, setCidadeNome] = useState<string>(posicaoCache?.cidadeNome ?? 'São Paulo (SP)');
   const [carregandoGPS, setCarregandoGPS] = useState<boolean>(false);
   const [mensagemGPS, setMensagemGPS] = useState<string | null>(null);
   const [rastreandoAoVivo, setRastreandoAoVivo] = useState<boolean>(false);
@@ -117,9 +120,13 @@ export const App: React.FC = () => {
         return combinados;
       });
 
-      // Busca o nome da localidade em segundo plano
+      // Busca o nome da localidade em segundo plano com suporte a cache offline
       obterNomeLocalidade(coords.lat, coords.lng).then((nome) => {
-        setCidadeNome(nome);
+        const nomeFinal = (nome && nome !== 'Sua Localização GPS') 
+          ? nome 
+          : (posicaoCache?.cidadeNome || 'Sua Região (Offline)');
+        setCidadeNome(nomeFinal);
+        salvarUltimaPosicao(coords.lat, coords.lng, nomeFinal);
       });
     } else {
       setCarregandoGPS(false);
@@ -155,7 +162,12 @@ export const App: React.FC = () => {
         });
 
         obterNomeLocalidade(coords.lat, coords.lng).then((nome) => {
-          if (montado) setCidadeNome(nome);
+          if (!montado) return;
+          const nomeFinal = (nome && nome !== 'Sua Localização GPS') 
+            ? nome 
+            : (posicaoCache?.cidadeNome || 'Sua Região (Offline)');
+          setCidadeNome(nomeFinal);
+          salvarUltimaPosicao(coords.lat, coords.lng, nomeFinal);
         });
       } else {
         setCarregandoGPS(false);
@@ -392,6 +404,7 @@ export const App: React.FC = () => {
                 setLat(c.lat);
                 setLng(c.lng);
                 setCidadeNome(c.nome);
+                salvarUltimaPosicao(c.lat, c.lng, c.nome);
                 setRastreandoAoVivo(false);
                 setPostoDestino(null);
                 setRotaAtiva(null);
@@ -424,6 +437,33 @@ export const App: React.FC = () => {
         </div>
       )}
 
+      {/* Banner de Modo Offline Inteligente */}
+      {!estaOnline && (
+        <div className="bg-gradient-to-r from-amber-950/95 via-slate-900/95 to-amber-950/95 border-b border-amber-500/40 px-4 py-2 flex items-center justify-between text-xs text-amber-200 shadow-md">
+          <div className="flex items-center gap-2 min-w-0 pr-2">
+            <WifiOff className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+            <div className="truncate text-[11px] sm:text-xs">
+              <strong className="text-amber-300">Modo Offline Ativo:</strong> GPS do aparelho e postos salvos disponíveis sem internet!
+            </div>
+          </div>
+          {visualizacao === 'mapa' ? (
+            <button
+              onClick={() => setVisualizacao('lista')}
+              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black rounded text-[11px] shrink-0 shadow flex items-center gap-1 transition-all"
+            >
+              <List className="w-3.5 h-3.5" /> Ver Lista
+            </button>
+          ) : (
+            <button
+              onClick={() => setVisualizacao('mapa')}
+              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 active:scale-95 text-amber-300 font-bold rounded text-[11px] shrink-0 border border-amber-500/30 flex items-center gap-1 transition-all"
+            >
+              <MapIcon className="w-3.5 h-3.5" /> Ver Radar
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Filtros e Métricas */}
       <Filtros
         combustivelSelecionado={combustivel}
@@ -450,6 +490,8 @@ export const App: React.FC = () => {
               onSelecionarPosto={(posto) => tracarRota(posto, lat, lng)}
               postoDestino={postoDestino}
               rotaAtiva={rotaAtiva}
+              estaOnline={estaOnline}
+              onAlternarParaLista={() => setVisualizacao('lista')}
             />
 
             {/* Painel de Navegação Ativa (quando um posto é clicado) */}
@@ -464,6 +506,7 @@ export const App: React.FC = () => {
                 }}
                 rastreandoAoVivo={rastreandoAoVivo}
                 onAlternarRastreamento={() => setRastreandoAoVivo(!rastreandoAoVivo)}
+                estaOnline={estaOnline}
               />
             ) : (
               /* Card Flutuante com o Posto Mais Barato */
@@ -520,6 +563,7 @@ export const App: React.FC = () => {
               setModalAtualizarAberto(true);
             }}
             onSelecionarPostoParaNavegar={(posto) => tracarRota(posto, lat, lng)}
+            estaOnline={estaOnline}
           />
         )}
       </main>

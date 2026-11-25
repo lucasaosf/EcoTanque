@@ -11,6 +11,17 @@
   background: #0f172a;
 }
 
+/* Radar Tático de Alta Precisão para Modo Offline Sem Internet */
+.radar-offline-grid,
+.leaflet-container.radar-offline-grid {
+  background-color: #030712 !important;
+  background-image: 
+    radial-gradient(circle at center, rgba(16, 185, 129, 0.16) 0%, rgba(16, 185, 129, 0.05) 45%, transparent 75%),
+    linear-gradient(to right, rgba(51, 65, 85, 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(51, 65, 85, 0.35) 1px, transparent 1px) !important;
+  background-size: 100% 100%, 40px 40px, 40px 40px !important;
+}
+
 /* Transparência obrigatória para ícones divIcon do Leaflet */
 .fuel-marker-container,
 .user-gps-marker {

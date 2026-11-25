@@ -23,14 +23,55 @@ export function calcularDistanciaKm(
 
 // Chave do localStorage para persistir postos atualizados pelo usuário
 const STORAGE_KEY = 'ecotanque_postos_v5';
+const ULTIMA_POSICAO_KEY = 'ecotanque_ultima_posicao_v1';
+
+export interface UltimaPosicaoSalva {
+  lat: number;
+  lng: number;
+  cidadeNome: string;
+  dataHora: string;
+}
+
+export function salvarUltimaPosicao(lat: number, lng: number, cidadeNome: string): void {
+  try {
+    const dados: UltimaPosicaoSalva = {
+      lat,
+      lng,
+      cidadeNome,
+      dataHora: new Date().toISOString(),
+    };
+    localStorage.setItem(ULTIMA_POSICAO_KEY, JSON.stringify(dados));
+  } catch (e) {
+    console.warn('Erro ao salvar última posição offline', e);
+  }
+}
+
+export function obterUltimaPosicaoSalva(): UltimaPosicaoSalva | null {
+  try {
+    const dados = localStorage.getItem(ULTIMA_POSICAO_KEY);
+    if (dados) {
+      return JSON.parse(dados) as UltimaPosicaoSalva;
+    }
+  } catch (e) {
+    console.warn('Erro ao carregar última posição offline', e);
+  }
+  return null;
+}
 
 export function obterPostosCadastrados(): Posto[] {
   try {
     const dadosSalvos = localStorage.getItem(STORAGE_KEY);
     if (dadosSalvos) {
       const parsed = JSON.parse(dadosSalvos);
-      if (Array.isArray(parsed) && parsed.length >= POSTOS_INICIAIS.length) {
-        return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const mapaExistentes = new Set(parsed.map((p: Posto) => p.id));
+        const combinados = [...parsed];
+        for (const p of POSTOS_INICIAIS) {
+          if (!mapaExistentes.has(p.id)) {
+            combinados.push(p);
+          }
+        }
+        return combinados;
       }
     }
   } catch (e) {
@@ -111,13 +152,28 @@ export function filtrarEOrdenarPostos(
     return dentroDoRaio && temCombustivel;
   });
 
-  // Se não houver postos no raio estrito, pega os mais próximos
-  const baseParaOrdenar = filtrados.length > 0 
-    ? filtrados 
-    : postosComDistancia
-        .filter((p) => p.precos[combustivel] !== null && p.precos[combustivel] !== undefined)
-        .sort((a, b) => (a.distanciaKm ?? 0) - (b.distanciaKm ?? 0))
-        .slice(0, 6);
+  // Se não houver postos no raio estrito (ex: sem internet ou em rodovia/nova localidade)
+  let baseParaOrdenar = filtrados;
+
+  if (baseParaOrdenar.length === 0) {
+    // 1. Tenta achar postos salvos a uma distância aceitável (até 35 km)
+    const postosValidosProximos = postosComDistancia
+      .filter((p) => p.precos[combustivel] !== null && p.precos[combustivel] !== undefined && (p.distanciaKm ?? 999) <= 35)
+      .sort((a, b) => (a.distanciaKm ?? 0) - (b.distanciaKm ?? 0));
+
+    if (postosValidosProximos.length > 0) {
+      baseParaOrdenar = postosValidosProximos.slice(0, 10);
+    } else {
+      // 2. Garantia 100% Offline: Gera rede local imediata ao redor das coordenadas GPS do aparelho
+      const postosLocais = gerarPostosLocaisGps(lat, lng).map((p) => ({
+        ...p,
+        distanciaKm: calcularDistanciaKm(lat, lng, p.lat, p.lng),
+      }));
+      baseParaOrdenar = postosLocais.filter(
+        (p) => p.precos[combustivel] !== null && p.precos[combustivel] !== undefined
+      );
+    }
+  }
 
   // 2. Ordena de acordo com o critério
   return baseParaOrdenar.sort((a, b) => {

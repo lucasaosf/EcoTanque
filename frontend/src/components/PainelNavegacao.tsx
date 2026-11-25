@@ -11,6 +11,7 @@ interface PainelNavegacaoProps {
   onEncerrarRota: () => void;
   rastreandoAoVivo: boolean;
   onAlternarRastreamento: () => void;
+  estaOnline?: boolean;
 }
 
 export const PainelNavegacao: React.FC<PainelNavegacaoProps> = ({
@@ -20,6 +21,7 @@ export const PainelNavegacao: React.FC<PainelNavegacaoProps> = ({
   onEncerrarRota,
   rastreandoAoVivo,
   onAlternarRastreamento,
+  estaOnline = true,
 }) => {
   const preco = posto.precos[combustivelSelecionado];
 
@@ -69,6 +71,7 @@ export const PainelNavegacao: React.FC<PainelNavegacaoProps> = ({
             </span>
             <span className="text-[10px] text-slate-500 block">
               {rota ? `Chegada às ${rota.horaEstimadaChegada}` : ''}
+              {!estaOnline && <span className="text-amber-400 font-semibold ml-1">⚡ Offline</span>}
             </span>
           </div>
 

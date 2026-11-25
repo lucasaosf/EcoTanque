@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import type { Posto, CombustivelTipo } from '../types';
 import { obterEstiloBandeira } from '../types';
-import { Navigation, Clock, ShieldCheck, ChevronDown, ChevronUp, Edit3, Award, ExternalLink } from 'lucide-react';
+import { Navigation, Clock, ShieldCheck, ChevronDown, ChevronUp, Edit3, Award, ExternalLink, WifiOff } from 'lucide-react';
 
 interface ListaPostosProps {
   postos: Posto[];
   combustivelSelecionado: CombustivelTipo;
   onEditarPosto: (posto: Posto) => void;
   onSelecionarPostoParaNavegar?: (posto: Posto) => void;
+  estaOnline?: boolean;
 }
 
 export const ListaPostos: React.FC<ListaPostosProps> = ({
@@ -15,6 +16,7 @@ export const ListaPostos: React.FC<ListaPostosProps> = ({
   combustivelSelecionado,
   onEditarPosto,
   onSelecionarPostoParaNavegar,
+  estaOnline = true,
 }) => {
   const [postoExpandido, setPostoExpandido] = useState<string | null>(null);
 
@@ -37,6 +39,16 @@ export const ListaPostos: React.FC<ListaPostosProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-3">
+      {/* Indicador de Modo Offline na Listagem */}
+      {!estaOnline && (
+        <div className="bg-amber-950/60 border border-amber-500/40 rounded-xl p-3 flex items-center gap-2.5 text-xs text-amber-200 shadow-sm">
+          <WifiOff className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+          <span>
+            <strong className="text-amber-300">Modo Offline Ativo:</strong> Exibindo os postos mais próximos salvos pelo GPS do aparelho. O cálculo de rota e distâncias continuam funcionando sem internet.
+          </span>
+        </div>
+      )}
+
       {postos.map((posto, index) => {
         const preco = posto.precos[combustivelSelecionado];
         if (preco === null || preco === undefined) return null;

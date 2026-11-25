@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
-import { Layers, LocateFixed, Crosshair, Map as MapIcon } from 'lucide-react';
+import { Layers, LocateFixed, Crosshair, Map as MapIcon, Radio } from 'lucide-react';
 import type { Posto, CombustivelTipo } from '../types';
 import { obterEstiloBandeira } from '../types';
 import type { RotaDetalhada } from '../services/routingService';
@@ -14,6 +14,8 @@ interface MapaProps {
   onSelecionarPosto?: (posto: Posto) => void;
   postoDestino?: Posto | null;
   rotaAtiva?: RotaDetalhada | null;
+  estaOnline?: boolean;
+  onAlternarParaLista?: () => void;
 }
 
 // Configurações das camadas de satélite e ruas (Google Maps Hybrid & Vector)
@@ -43,6 +45,8 @@ export const Mapa: React.FC<MapaProps> = ({
   onSelecionarPosto,
   postoDestino,
   rotaAtiva,
+  estaOnline = true,
+  onAlternarParaLista,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -381,12 +385,28 @@ export const Mapa: React.FC<MapaProps> = ({
 
   return (
     <div className="relative w-full h-full min-h-[420px] flex-1">
-      {/* Container Leaflet */}
+      {/* Container Leaflet com Radar Offline Grid se estiver sem internet */}
       <div 
         ref={mapContainerRef} 
         id="map-container"
-        className="w-full h-full min-h-[420px] rounded-b-xl" 
+        className={`w-full h-full min-h-[420px] rounded-b-xl ${!estaOnline ? 'radar-offline-grid' : ''}`} 
       />
+
+      {/* Indicador de Radar GPS Offline */}
+      {!estaOnline && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900/95 backdrop-blur-md border border-amber-500/50 px-3 py-1.5 rounded-full text-xs text-amber-300 font-bold shadow-2xl flex items-center gap-2">
+          <Radio className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+          <span className="whitespace-nowrap">Radar GPS Offline • {postos.length} postos mapeados</span>
+          {onAlternarParaLista && (
+            <button
+              onClick={onAlternarParaLista}
+              className="ml-1 px-2 py-0.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded text-[10px] transition-all"
+            >
+              Ver Lista
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Legenda de Cores Flutuante no Canto Superior Esquerdo */}
       <div className="absolute top-3 left-3 z-[1000] bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-2.5 py-1.5 rounded-lg text-[11px] text-white shadow-2xl flex flex-col gap-1 pointer-events-none">
@@ -406,24 +426,31 @@ export const Mapa: React.FC<MapaProps> = ({
 
       {/* Barra de Controles Superiores Flutuantes (Direita) */}
       <div className="absolute top-3 right-14 z-[1000] flex items-center gap-2">
-        {/* Botão de Alternar Camada (Satélite / Ruas) */}
-        <button
-          onClick={alternarCamada}
-          className="bg-slate-900/95 hover:bg-slate-800 active:scale-95 text-cyan-300 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-xl backdrop-blur-md transition-all flex items-center gap-1.5"
-          title={`Trocar para modo ${tipoCamada === 'satelite' ? 'Ruas' : 'Satélite'}`}
-        >
-          {tipoCamada === 'satelite' ? (
-            <>
-              <Layers className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Satélite Ativo</span>
-            </>
-          ) : (
-            <>
-              <MapIcon className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Mapa Ruas</span>
-            </>
-          )}
-        </button>
+        {/* Botão de Alternar Camada (Satélite / Ruas) ou Indicador Radar se offline */}
+        {estaOnline ? (
+          <button
+            onClick={alternarCamada}
+            className="bg-slate-900/95 hover:bg-slate-800 active:scale-95 text-cyan-300 border border-slate-700 px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-xl backdrop-blur-md transition-all flex items-center gap-1.5"
+            title={`Trocar para modo ${tipoCamada === 'satelite' ? 'Ruas' : 'Satélite'}`}
+          >
+            {tipoCamada === 'satelite' ? (
+              <>
+                <Layers className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Satélite Ativo</span>
+              </>
+            ) : (
+              <>
+                <MapIcon className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Mapa Ruas</span>
+              </>
+            )}
+          </button>
+        ) : (
+          <div className="bg-slate-900/95 border border-amber-500/40 px-2.5 py-1.5 rounded-lg text-xs font-bold text-amber-300 shadow-xl backdrop-blur-md flex items-center gap-1.5">
+            <Radio className="w-3.5 h-3.5 text-amber-400" />
+            <span>Radar Ativo</span>
+          </div>
+        )}
 
         {/* Botão de Enquadrar Todos os Postos */}
         {postos.length > 0 && (
