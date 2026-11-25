@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Posto, CombustivelTipo } from '../types';
+import { obterEstiloBandeira } from '../types';
 import { Navigation, Clock, ShieldCheck, ChevronDown, ChevronUp, Edit3, Award, ExternalLink } from 'lucide-react';
 
 interface ListaPostosProps {
@@ -76,8 +77,8 @@ export const ListaPostos: React.FC<ListaPostosProps> = ({
                   <span className="w-5 h-5 rounded-full bg-slate-800 text-slate-300 text-xs font-bold flex items-center justify-center shrink-0">
                     {index + 1}º
                   </span>
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                    {posto.bandeira}
+                  <span className={`text-[10px] uppercase font-black tracking-wide px-2 py-0.5 rounded shadow-sm shrink-0 ${obterEstiloBandeira(posto.bandeira).badge}`}>
+                    {obterEstiloBandeira(posto.bandeira).emoji} {posto.bandeira}
                   </span>
                   <h3 className="font-bold text-slate-100 text-base truncate">{posto.nome}</h3>
                 </div>

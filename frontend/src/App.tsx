@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { Posto, CombustivelTipo, OrdemBusca } from './types';
+import { obterEstiloBandeira } from './types';
 import { 
   obterPostosCadastrados, 
   salvarPostos, 
@@ -477,15 +478,20 @@ export const App: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-bold text-white text-sm truncate max-w-[200px]">
-                        {postosProcessados[0].nome}
-                      </h4>
+                    <div className="flex-1 min-w-0 pr-2">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className={`text-[9px] uppercase px-1.5 py-0.5 rounded shadow-sm shrink-0 ${obterEstiloBandeira(postosProcessados[0].bandeira).badge}`}>
+                          {obterEstiloBandeira(postosProcessados[0].bandeira).emoji} {postosProcessados[0].bandeira}
+                        </span>
+                        <h4 className="font-bold text-white text-sm truncate">
+                          {postosProcessados[0].nome}
+                        </h4>
+                      </div>
                       <p className="text-[11px] text-slate-400 truncate">
                         {postosProcessados[0].endereco}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <span className="text-[10px] text-slate-400 block uppercase font-semibold">Litro</span>
                       <span className="text-xl font-black text-emerald-400">
                         R$ {postosProcessados[0].precos[combustivel]?.toFixed(2)}

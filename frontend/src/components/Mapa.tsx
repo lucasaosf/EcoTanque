@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
 import { Layers, LocateFixed, Crosshair, Map as MapIcon } from 'lucide-react';
 import type { Posto, CombustivelTipo } from '../types';
+import { obterEstiloBandeira } from '../types';
 import type { RotaDetalhada } from '../services/routingService';
 
 interface MapaProps {
@@ -218,35 +219,40 @@ export const Mapa: React.FC<MapaProps> = ({
       const preco = posto.precos[combustivelSelecionado];
       if (preco === null || preco === undefined) return;
 
-      latLngsParaEnquadrar.push([posto.lat, posto.lng]);
+      const distKm = posto.distanciaKm ?? Math.hypot((posto.lat - usuarioLat) * 111, (posto.lng - usuarioLng) * 111);
+      // Evita afastar o zoom se houver posto salvo de outra cidade distante (limite seguro de raio)
+      if (distKm <= Math.max(raioKm * 2, 40)) {
+        latLngsParaEnquadrar.push([posto.lat, posto.lng]);
+      }
 
       const isMenor = Math.abs(preco - menorPreco) < 0.01;
       const isMaior = Math.abs(preco - maiorPreco) < 0.01 && precosValidos.length > 1;
       const isDestino = postoDestino?.id === posto.id;
 
-      // Destaques de cores vibrantes para visualização clara no mapa de satélite
+      // Obtém as cores e tags oficiais da bandeira do posto (Petrobras, Shell, Ipiranga, Ale, etc.)
+      const estiloBandeira = obterEstiloBandeira(posto.bandeira);
+
+      // Destaques de cores vibrantes para visualização clara no mapa de satélite e ruas
       let badgeEstilo = 'bg-slate-900/95 border-slate-600 text-white';
-      let pinIcon = '⛽';
 
       if (isDestino) {
         badgeEstilo = 'bg-teal-500 border-white text-slate-950 ring-4 ring-teal-400/70 scale-110';
-        pinIcon = '🎯';
       } else if (isMenor) {
         badgeEstilo = 'bg-emerald-600 border-emerald-300 text-white ring-4 ring-emerald-500/50 scale-105';
-        pinIcon = '★';
       } else if (isMaior) {
         badgeEstilo = 'bg-rose-700 border-rose-400 text-white';
-        pinIcon = '⛽';
       } else {
-        badgeEstilo = 'bg-amber-600 border-amber-300 text-white';
-        pinIcon = '⛽';
+        badgeEstilo = 'bg-slate-900/95 border-slate-600 text-white';
       }
 
+      // Marcador compacto com a BANDEIRA oficial e o PREÇO
       const html = `
         <div class="custom-pin flex flex-col items-center cursor-pointer transition-transform active:scale-95">
-          <div class="px-2.5 py-1 rounded-full border text-xs font-black shadow-2xl flex items-center gap-1 ${badgeEstilo}">
-            <span>${pinIcon}</span>
-            <span>R$ ${preco.toFixed(2)}</span>
+          <div class="px-2 py-1 rounded-full border text-xs font-black shadow-2xl flex items-center gap-1.5 ${badgeEstilo}">
+            <span class="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded shadow-sm ${estiloBandeira.pinBadge}">
+              ${estiloBandeira.nomeCurto}
+            </span>
+            <span class="font-extrabold tracking-tight">${isMenor ? '★ ' : ''}R$ ${preco.toFixed(2)}</span>
           </div>
           <div class="w-2.5 h-2.5 bg-slate-900 rotate-45 -mt-1.5 border-r border-b border-slate-700"></div>
         </div>
@@ -255,9 +261,9 @@ export const Mapa: React.FC<MapaProps> = ({
       const customIcon = L.divIcon({
         className: 'fuel-marker-container',
         html: html,
-        iconSize: [84, 38],
-        iconAnchor: [42, 38],
-        popupAnchor: [0, -38],
+        iconSize: [112, 42],
+        iconAnchor: [56, 42],
+        popupAnchor: [0, -42],
       });
 
       const marker = L.marker([posto.lat, posto.lng], {
@@ -272,14 +278,14 @@ export const Mapa: React.FC<MapaProps> = ({
         }
       });
 
-      // Popup detalhado com botão de confirmação
+      // Popup detalhado com botão de confirmação e BANDEIRA em destaque
       const popupHtml = `
         <div class="p-2.5 min-w-[220px] font-sans text-slate-800">
           <div class="flex items-center justify-between gap-1 border-b pb-1.5 mb-1.5">
-            <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
-              ${posto.bandeira}
+            <span class="text-[10px] uppercase font-bold px-2 py-0.5 rounded shadow-sm ${estiloBandeira.badge}">
+              ${estiloBandeira.emoji} BANDEIRA ${posto.bandeira.toUpperCase()}
             </span>
-            ${isMenor ? '<span class="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">MAIS BARATO</span>' : ''}
+            ${isMenor ? '<span class="text-[10px] font-extrabold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">★ MAIS BARATO</span>' : ''}
           </div>
 
           <h3 class="font-bold text-sm text-slate-900 leading-tight">${posto.nome}</h3>
@@ -316,14 +322,18 @@ export const Mapa: React.FC<MapaProps> = ({
       layer.addLayer(marker);
     });
 
-    // Enquadramento inicial nos postos apenas se não houver rota ativa
-    if (!rotaAtiva && latLngsParaEnquadrar.length > 1 && !mapaDeslocado) {
+    // Enquadramento inicial nos postos apenas se não houver rota ativa e não foi mexido manualmente
+    if (!rotaAtiva && !mapaDeslocado) {
       try {
-        const bounds = L.latLngBounds(latLngsParaEnquadrar);
-        map.fitBounds(bounds, {
-          padding: [50, 50],
-          maxZoom: 15,
-        });
+        if (latLngsParaEnquadrar.length > 1) {
+          const bounds = L.latLngBounds(latLngsParaEnquadrar);
+          map.fitBounds(bounds, {
+            padding: [50, 50],
+            maxZoom: 15,
+          });
+        } else {
+          map.setView([usuarioLat, usuarioLng], 15);
+        }
       } catch (e) {
         console.warn('Erro fitBounds', e);
       }

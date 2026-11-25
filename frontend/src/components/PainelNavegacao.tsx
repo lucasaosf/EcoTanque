@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Posto, CombustivelTipo } from '../types';
+import { obterEstiloBandeira } from '../types';
 import type { RotaDetalhada } from '../services/routingService';
 import { Navigation, Clock, MapPin, X, ExternalLink, Radio, Fuel } from 'lucide-react';
 
@@ -32,8 +33,8 @@ export const PainelNavegacao: React.FC<PainelNavegacaoProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-slate-800 text-emerald-400 border border-emerald-500/30">
-                {posto.bandeira}
+              <span className={`text-[10px] uppercase font-black tracking-wide px-2 py-0.5 rounded shadow-sm shrink-0 ${obterEstiloBandeira(posto.bandeira).badge}`}>
+                {obterEstiloBandeira(posto.bandeira).emoji} {posto.bandeira}
               </span>
               <span className="text-xs font-bold text-white truncate max-w-[200px]">
                 {posto.nome}

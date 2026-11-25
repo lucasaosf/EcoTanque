@@ -49,3 +49,67 @@ export interface RegraCombustivelMeta {
   cor: string;
   unidade: string;
 }
+
+export interface EstiloBandeira {
+  badge: string;
+  pinBadge: string;
+  nomeCurto: string;
+  corPrincipal: string;
+  emoji: string;
+}
+
+export function obterEstiloBandeira(bandeira: string): EstiloBandeira {
+  const b = (bandeira || '').toLowerCase();
+  if (b.includes('petrobras') || b.includes('br')) {
+    return {
+      badge: 'bg-emerald-950 text-yellow-300 border border-emerald-500/50 font-black',
+      pinBadge: 'bg-emerald-800 text-yellow-300 border-yellow-400 font-black',
+      nomeCurto: 'BR',
+      corPrincipal: '#059669',
+      emoji: '🟢',
+    };
+  }
+  if (b.includes('shell')) {
+    return {
+      badge: 'bg-yellow-400 text-red-700 border border-red-500 font-black',
+      pinBadge: 'bg-yellow-400 text-red-700 border-red-500 font-black',
+      nomeCurto: 'Shell',
+      corPrincipal: '#eab308',
+      emoji: '🟡',
+    };
+  }
+  if (b.includes('ipiranga')) {
+    return {
+      badge: 'bg-blue-600 text-yellow-300 border border-blue-400 font-black',
+      pinBadge: 'bg-blue-600 text-yellow-300 border-yellow-400 font-black',
+      nomeCurto: 'Ipiranga',
+      corPrincipal: '#2563eb',
+      emoji: '🔵',
+    };
+  }
+  if (b.includes('ale')) {
+    return {
+      badge: 'bg-red-600 text-white border border-red-400 font-black',
+      pinBadge: 'bg-red-600 text-white border-red-300 font-black',
+      nomeCurto: 'Ale',
+      corPrincipal: '#e11d48',
+      emoji: '🔴',
+    };
+  }
+  if (b.includes('total')) {
+    return {
+      badge: 'bg-rose-700 text-white border border-rose-500 font-black',
+      pinBadge: 'bg-rose-700 text-white border-rose-400 font-black',
+      nomeCurto: 'Total',
+      corPrincipal: '#be123c',
+      emoji: '🔴',
+    };
+  }
+  return {
+    badge: 'bg-slate-800 text-slate-200 border border-slate-600 font-black',
+    pinBadge: 'bg-slate-800 text-slate-200 border-slate-600 font-black',
+    nomeCurto: 'Branca',
+    corPrincipal: '#64748b',
+    emoji: '⚪',
+  };
+}
